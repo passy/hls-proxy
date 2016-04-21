@@ -1,0 +1,68 @@
+name: hls-proxy
+version: 1.0.0.0
+synopsis: A bunch of hacks to modify HLS manifests in-flight
+description: Please see README.md
+homepage: http://github.com/passy/hls-proxy
+license: BSD3
+author: Pascal Hartig
+maintainer: Pascal Hartig <phartig@rdrei.net>
+category: Web
+extra-source-files:
+  - stack.yaml
+  - README.md
+
+ghc-options:
+  - -Wall
+  - -fwarn-tabs
+  - -fwarn-incomplete-record-updates
+  - -fwarn-monomorphism-restriction
+  - -fwarn-unused-do-bind
+
+dependencies:
+  - base >= 4.7 && < 5
+  - text
+  - network-uri
+
+library:
+  source-dirs: src
+  dependencies:
+    - bytestring
+    - containers
+    - lens
+    - scotty
+    - transformers
+    - data-default
+  exposed-modules:
+    - Lib
+    - Lib.Server
+
+tests:
+  spec:
+    main: Spec.hs
+    source-dirs: test
+    ghc-options: -threaded -rtsopts -with-rtsopts=-N
+    dependencies:
+      - hls-proxy
+      - hspec
+      - lens
+      - containers
+
+executables:
+  hls-proxy:
+    main: Main.hs
+    source-dirs: app
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+      - -Wall
+    dependencies:
+      - hls-proxy
+      - optparse-applicative
+      - bytestring
+      - lens
+      - wreq
+      - transformers
+      - data-default
+    other-modules:
+      - Paths_hls_proxy
