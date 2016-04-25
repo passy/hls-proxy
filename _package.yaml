@@ -27,13 +27,18 @@ library:
   source-dirs: src
   dependencies:
     - bytestring
+    - case-insensitive
+    - conduit-extra
     - containers
-    - lens
-    - scotty
-    - transformers
     - data-default
+    - http-conduit
+    - http-reverse-proxy
+    - lens
+    - transformers
+    - wai
+    - wai-extra
+    - warp
   exposed-modules:
-    - Lib
     - Lib.Server
 
 tests:
