@@ -70,8 +70,7 @@ data PlaylistType = MasterPlaylist | MediaPlaylist | InvalidPlaylist
 -- that *will* break.
 playlistType :: Wai.Request -> PlaylistType
 playlistType r =
-  let pathInfo = Wai.pathInfo r
-  in  case T.isInfixOf "x" <$> lastMay pathInfo of
+  case T.isInfixOf "x" <$> lastMay (Wai.pathInfo r) of
     Just True -> MediaPlaylist
     Just False -> MasterPlaylist
     Nothing -> InvalidPlaylist
