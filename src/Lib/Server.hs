@@ -10,18 +10,22 @@ module Lib.Server
     , port
     ) where
 
-import           Control.Lens                         ((^.), (&), makeLenses)
+import           Control.Lens                         (makeLenses, (&), (^.))
 import qualified Data.ByteString                      as BS
 import qualified Data.ByteString.Char8                as B8
 import           Data.CaseInsensitive                 (CI)
 import           Data.Default                         (Default (), def)
+import qualified Data.Text                            as T
 import qualified Network.HTTP.Conduit                 as Conduit
-import           Network.HTTP.ReverseProxy            (ProxyDest (ProxyDest),
-                                                       WaiProxyResponse (..),
-                                                       waiProxyToSettings)
+import qualified Network.HTTP.ReverseProxy            as Proxy
+import qualified Network.HTTP.Types.Status            as Status
 import qualified Network.Wai                          as Wai
 import           Network.Wai.Handler.Warp             (runEnv)
 import           Network.Wai.Middleware.RequestLogger (logStdout)
+import           Safe                                 (lastMay)
+import           System.FilePath                      ((</>))
+
+import           Paths_hls_proxy                      (getDataFileName)
 
 newtype Port = Port Int
   deriving (Read, Show)
@@ -57,10 +61,36 @@ server opts = do
   manager <- Conduit.newManager Conduit.tlsManagerSettings
   runEnv (opts ^. port & unPort) (logStdout $ proxy opts manager)
 
+data PlaylistType = MasterPlaylist | MediaPlaylist | InvalidPlaylist
+
+-- | Based on a very rough heuristic only working in our particular setup
+-- that *will* break.
+playlistType :: Wai.Request -> PlaylistType
+playlistType r =
+  let pathInfo = Wai.pathInfo r
+  in  case T.isInfixOf "x" <$> lastMay pathInfo of
+    Just True -> MediaPlaylist
+    Just False -> MasterPlaylist
+    Nothing -> InvalidPlaylist
+
+getDataM3U8 :: FilePath -> IO FilePath
+getDataM3U8 fp =
+  getDataFileName $ "shared" </> "m3u8" </> fp
+
+mkEmptyEndedPlaylistResponse :: IO Wai.Response
+mkEmptyEndedPlaylistResponse = do
+  path <- getDataM3U8 "event_empty_ended.m3u8"
+  return $ Wai.responseFile Status.status200 def path Nothing
+
 proxy :: ServerOptions -> Conduit.Manager -> Wai.Application
-proxy opts = waiProxyToSettings transform def
+proxy opts = Proxy.waiProxyToSettings transform def
   where
     destBS =
       opts ^. url & B8.pack
     transform req =
-      return $ WPRModifiedRequestSecure (setHostHeaderToDestination destBS req) (ProxyDest destBS 443)
+      let pt = playlistType req
+      in case pt of
+        MediaPlaylist ->
+          mkEmptyEndedPlaylistResponse >>= pure . Proxy.WPRResponse
+        _             ->
+          return $ Proxy.WPRModifiedRequestSecure (setHostHeaderToDestination destBS req) (Proxy.ProxyDest destBS 443)

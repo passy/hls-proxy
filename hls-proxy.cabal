@@ -19,6 +19,9 @@ extra-source-files:
     README.md
     stack.yaml
 
+data-files:
+    shared/m3u8/event_empty_ended.m3u8
+
 library
   hs-source-dirs:
       src
@@ -39,6 +42,9 @@ library
     , wai
     , wai-extra
     , warp
+    , safe
+    , filepath
+    , http-types
   exposed-modules:
       Lib.Server
   other-modules:
