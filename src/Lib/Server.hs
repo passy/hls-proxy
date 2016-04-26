@@ -15,9 +15,11 @@ import qualified Data.ByteString                      as BS
 import qualified Data.ByteString.Char8                as B8
 import           Data.CaseInsensitive                 (CI)
 import           Data.Default                         (Default (), def)
+import           Data.Monoid                          ((<>))
 import qualified Data.Text                            as T
 import qualified Network.HTTP.Conduit                 as Conduit
 import qualified Network.HTTP.ReverseProxy            as Proxy
+import qualified Network.HTTP.Types.Header            as Header
 import qualified Network.HTTP.Types.Status            as Status
 import qualified Network.Wai                          as Wai
 import           Network.Wai.Handler.Warp             (runEnv)
@@ -78,10 +80,13 @@ getDataM3U8 :: FilePath -> IO FilePath
 getDataM3U8 fp =
   getDataFileName $ "shared" </> "m3u8" </> fp
 
+hlsHeaders :: Header.RequestHeaders
+hlsHeaders = pure (Header.hContentType, "application/x-mpegURL")
+
 mkEmptyEndedPlaylistResponse :: IO Wai.Response
 mkEmptyEndedPlaylistResponse = do
   path <- getDataM3U8 "event_empty_ended.m3u8"
-  return $ Wai.responseFile Status.status200 def path Nothing
+  return $ Wai.responseFile Status.status200 (def <> hlsHeaders) path Nothing
 
 passthrough :: B8.ByteString -> Wai.Request -> IO Proxy.WaiProxyResponse
 passthrough dest req =
