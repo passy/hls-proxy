@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
 module Lib.Server
@@ -10,6 +11,9 @@ module Lib.Server
     , port
     ) where
 
+import           Control.Concurrent.STM               (STM (), atomically)
+import           Control.Concurrent.STM.TVar          (TVar (), newTVar,
+                                                       readTVar)
 import           Control.Lens                         (makeLenses, (&), (^.))
 import qualified Data.ByteString                      as BS
 import qualified Data.ByteString.Char8                as B8
@@ -37,12 +41,22 @@ unPort (Port i) = i
 
 -- | Command line options provided to start up the server.
 data ServerOptions = ServerOptions
-  { _url   :: String
-  , _port  :: Port
-  , _empty :: Bool
+  { _url  :: String
+  , _port :: Port
   }
 
 makeLenses ''ServerOptions
+
+data RuntimeOptions = RuntimeOptions
+  { _serveEmptyPlaylist :: TVar Bool
+  }
+
+makeLenses ''RuntimeOptions
+
+defRuntimeOptions :: STM RuntimeOptions
+defRuntimeOptions = do
+  _serveEmptyPlaylist <- newTVar False
+  return RuntimeOptions {..}
 
 instance Default Port where
   def = Port 3000
@@ -60,9 +74,10 @@ setHostHeaderToDestination dest req =
               _      -> header)
 
 server :: ServerOptions -> IO ()
-server opts = do
+server sopts = do
   manager <- Conduit.newManager Conduit.tlsManagerSettings
-  runEnv (opts ^. port & unPort) (logStdout $ proxy opts manager)
+  ropts <- atomically defRuntimeOptions
+  runEnv (sopts ^. port & unPort) (logStdout $ proxy ropts sopts manager)
 
 data PlaylistType = MasterPlaylist | MediaPlaylist | InvalidPlaylist
 
@@ -70,7 +85,7 @@ data PlaylistType = MasterPlaylist | MediaPlaylist | InvalidPlaylist
 -- that *will* break.
 playlistType :: Wai.Request -> PlaylistType
 playlistType r =
-  case T.isInfixOf "x" <$> lastMay (Wai.pathInfo r) of
+    case T.isInfixOf "x" <$> lastMay (Wai.pathInfo r) of
     Just True -> MediaPlaylist
     Just False -> MasterPlaylist
     Nothing -> InvalidPlaylist
@@ -93,20 +108,18 @@ passthrough dest req =
     (setHostHeaderToDestination dest req)
     (Proxy.ProxyDest dest 443)
 
-proxy :: ServerOptions -> Conduit.Manager -> Wai.Application
-proxy opts =
-  if opts ^. empty then
-    Proxy.waiProxyToSettings transform def
-  else
-    Proxy.waiProxyToSettings noopTransform def
+respondEmptyEndedPlaylist :: IO Proxy.WaiProxyResponse
+respondEmptyEndedPlaylist = mkEmptyEndedPlaylistResponse >>= pure . Proxy.WPRResponse
+
+proxy :: RuntimeOptions -> ServerOptions -> Conduit.Manager -> Wai.Application
+proxy ropts sopts =
+  Proxy.waiProxyToSettings transform def
   where
     destBS =
-      opts ^. url & B8.pack
-    noopTransform = passthrough destBS
-    transform req =
+      sopts ^. url & B8.pack
+    transform req = do
+      empty <- atomically . readTVar $ ropts ^. serveEmptyPlaylist
       let pt = playlistType req
-      in case pt of
-        MediaPlaylist ->
-          mkEmptyEndedPlaylistResponse >>= pure . Proxy.WPRResponse
-        _             ->
-          passthrough destBS req
+      case pt of
+        MediaPlaylist -> if empty then respondEmptyEndedPlaylist else passthrough destBS req
+        _             -> passthrough destBS req

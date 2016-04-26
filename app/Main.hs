@@ -31,10 +31,6 @@ serverParser progName ver =
          <> Opt.value def
          <> Opt.showDefault
          <> Opt.help "Port" )
-      <*> Opt.switch
-          ( Opt.long "empty"
-         <> Opt.short 'e'
-         <> Opt.help "Serve an empty + ended playlist response" )
 
     versionInfo = Opt.infoOption ( progName ++ showVersion ver )
       ( Opt.short 'V'

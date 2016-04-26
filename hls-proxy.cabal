@@ -45,6 +45,7 @@ library
     , safe
     , filepath
     , http-types
+    , stm
   exposed-modules:
       Lib.Server
   other-modules:
