@@ -35,8 +35,9 @@ unPort (Port i) = i
 
 -- | Command line options provided to start up the server.
 data ServerOptions = ServerOptions
-  { _url  :: String
-  , _port :: Port
+  { _url   :: String
+  , _port  :: Port
+  , _empty :: Bool
   }
 
 makeLenses ''ServerOptions
@@ -82,15 +83,26 @@ mkEmptyEndedPlaylistResponse = do
   path <- getDataM3U8 "event_empty_ended.m3u8"
   return $ Wai.responseFile Status.status200 def path Nothing
 
+passthrough :: B8.ByteString -> Wai.Request -> IO Proxy.WaiProxyResponse
+passthrough dest req =
+  return $ Proxy.WPRModifiedRequestSecure
+    (setHostHeaderToDestination dest req)
+    (Proxy.ProxyDest dest 443)
+
 proxy :: ServerOptions -> Conduit.Manager -> Wai.Application
-proxy opts = Proxy.waiProxyToSettings transform def
+proxy opts =
+  if opts ^. empty then
+    Proxy.waiProxyToSettings transform def
+  else
+    Proxy.waiProxyToSettings noopTransform def
   where
     destBS =
       opts ^. url & B8.pack
+    noopTransform = passthrough destBS
     transform req =
       let pt = playlistType req
       in case pt of
         MediaPlaylist ->
           mkEmptyEndedPlaylistResponse >>= pure . Proxy.WPRResponse
         _             ->
-          return $ Proxy.WPRModifiedRequestSecure (setHostHeaderToDestination destBS req) (Proxy.ProxyDest destBS 443)
+          passthrough destBS req
