@@ -1,20 +1,22 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
 
 module Lib.Server
     ( server
     , ServerOptions(..)
-    , Port(..)
+    , Port()
     , url
     , port
     ) where
 
-import           Control.Lens                         (makeLenses, (&), (^.))
+import           Control.Concurrent                   (forkIO)
+import           Control.Concurrent.STM               (atomically)
+import           Control.Concurrent.STM.TVar          (readTVar)
+import           Control.Lens                         ((&), (^.))
 import qualified Data.ByteString                      as BS
 import qualified Data.ByteString.Char8                as B8
 import           Data.CaseInsensitive                 (CI)
-import           Data.Default                         (Default (), def)
+import           Data.Default                         (def)
 import           Data.Monoid                          ((<>))
 import qualified Data.Text                            as T
 import qualified Network.HTTP.Conduit                 as Conduit
@@ -27,25 +29,14 @@ import           Network.Wai.Middleware.RequestLogger (logStdout)
 import           Safe                                 (lastMay)
 import           System.FilePath                      ((</>))
 
+import           Lib.Console                          (consoleThread)
+import           Lib.Types                            (Port,
+                                                       RuntimeOptions (..), ServerOptions (ServerOptions),
+                                                       defRuntimeOptions,
+                                                       enableEmptyPlaylist,
+                                                       port, unPort, url)
+
 import           Paths_hls_proxy                      (getDataFileName)
-
-newtype Port = Port Int
-  deriving (Read, Show)
-
-unPort :: Port -> Int
-unPort (Port i) = i
-
--- | Command line options provided to start up the server.
-data ServerOptions = ServerOptions
-  { _url   :: String
-  , _port  :: Port
-  , _empty :: Bool
-  }
-
-makeLenses ''ServerOptions
-
-instance Default Port where
-  def = Port 3000
 
 hostHeader :: BS.ByteString -> (CI BS.ByteString, BS.ByteString)
 hostHeader dest = ("Host", dest)
@@ -54,15 +45,17 @@ setHostHeaderToDestination :: BS.ByteString -> Wai.Request -> Wai.Request
 setHostHeaderToDestination dest req =
   req { Wai.requestHeaders = replaceHostHeader (Wai.requestHeaders req) }
   where replaceHostHeader =
-          map (\header@(name, _) ->
+          fmap (\header@(name, _) ->
             case name of
               "Host" -> hostHeader dest
               _      -> header)
 
 server :: ServerOptions -> IO ()
-server opts = do
+server sopts = do
   manager <- Conduit.newManager Conduit.tlsManagerSettings
-  runEnv (opts ^. port & unPort) (logStdout $ proxy opts manager)
+  ropts <- atomically defRuntimeOptions
+  _ <- forkIO $ consoleThread ropts
+  runEnv (sopts ^. port & unPort) (logStdout $ proxy ropts sopts manager)
 
 data PlaylistType = MasterPlaylist | MediaPlaylist | InvalidPlaylist
 
@@ -70,7 +63,7 @@ data PlaylistType = MasterPlaylist | MediaPlaylist | InvalidPlaylist
 -- that *will* break.
 playlistType :: Wai.Request -> PlaylistType
 playlistType r =
-  case T.isInfixOf "x" <$> lastMay (Wai.pathInfo r) of
+    case T.isInfixOf "x" <$> lastMay (Wai.pathInfo r) of
     Just True -> MediaPlaylist
     Just False -> MasterPlaylist
     Nothing -> InvalidPlaylist
@@ -93,20 +86,18 @@ passthrough dest req =
     (setHostHeaderToDestination dest req)
     (Proxy.ProxyDest dest 443)
 
-proxy :: ServerOptions -> Conduit.Manager -> Wai.Application
-proxy opts =
-  if opts ^. empty then
-    Proxy.waiProxyToSettings transform def
-  else
-    Proxy.waiProxyToSettings noopTransform def
+respondEmptyEndedPlaylist :: IO Proxy.WaiProxyResponse
+respondEmptyEndedPlaylist = mkEmptyEndedPlaylistResponse >>= pure . Proxy.WPRResponse
+
+proxy :: RuntimeOptions -> ServerOptions -> Conduit.Manager -> Wai.Application
+proxy ropts sopts =
+  Proxy.waiProxyToSettings transform def
   where
     destBS =
-      opts ^. url & B8.pack
-    noopTransform = passthrough destBS
-    transform req =
+      sopts ^. url & B8.pack
+    transform req = do
+      empty <- atomically . readTVar $ ropts ^. enableEmptyPlaylist
       let pt = playlistType req
-      in case pt of
-        MediaPlaylist ->
-          mkEmptyEndedPlaylistResponse >>= pure . Proxy.WPRResponse
-        _             ->
-          passthrough destBS req
+      case pt of
+        MediaPlaylist -> if empty then respondEmptyEndedPlaylist else passthrough destBS req
+        _             -> passthrough destBS req

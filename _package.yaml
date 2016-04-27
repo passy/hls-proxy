@@ -43,8 +43,10 @@ library:
     - safe
     - filepath
     - http-types
+    - stm
   exposed-modules:
     - Lib.Server
+    - Lib.Types
 
 tests:
   spec:
