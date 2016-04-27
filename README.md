@@ -1,4 +1,4 @@
-# hls-proxy
+# hls-proxy [![Build Status](https://travis-ci.org/passy/hls-proxy.svg?branch=master)](https://travis-ci.org/passy/hls-proxy)
 
 > A tool that if you're lucky you'll never need.
 
