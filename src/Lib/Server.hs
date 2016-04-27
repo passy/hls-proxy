@@ -1,12 +1,10 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TemplateHaskell   #-}
 
 module Lib.Server
     ( server
     , ServerOptions(..)
-    , Port(..)
+    , Port()
     , url
     , port
     ) where
@@ -33,37 +31,15 @@ import           Network.Wai.Handler.Warp             (runEnv)
 import           Network.Wai.Middleware.RequestLogger (logStdout)
 import           Safe                                 (lastMay)
 import           System.FilePath                      ((</>))
-import qualified System.IO as IO
+
+import           Lib.Types                            (Port, ServerOptions (ServerOptions),
+                                                       RuntimeOptions (..),
+                                                       defRuntimeOptions,
+                                                       enableEmptyPlaylist,
+                                                       port, unPort, url)
+import Lib.Console (consoleThread)
 
 import           Paths_hls_proxy                      (getDataFileName)
-
-newtype Port = Port Int
-  deriving (Read, Show)
-
-unPort :: Port -> Int
-unPort (Port i) = i
-
--- | Command line options provided to start up the server.
-data ServerOptions = ServerOptions
-  { _url  :: String
-  , _port :: Port
-  }
-
-makeLenses ''ServerOptions
-
-data RuntimeOptions = RuntimeOptions
-  { _serveEmptyPlaylist :: TVar Bool
-  }
-
-makeLenses ''RuntimeOptions
-
-defRuntimeOptions :: STM RuntimeOptions
-defRuntimeOptions = do
-  _serveEmptyPlaylist <- newTVar False
-  return RuntimeOptions {..}
-
-instance Default Port where
-  def = Port 3000
 
 hostHeader :: BS.ByteString -> (CI BS.ByteString, BS.ByteString)
 hostHeader dest = ("Host", dest)
@@ -72,7 +48,7 @@ setHostHeaderToDestination :: BS.ByteString -> Wai.Request -> Wai.Request
 setHostHeaderToDestination dest req =
   req { Wai.requestHeaders = replaceHostHeader (Wai.requestHeaders req) }
   where replaceHostHeader =
-          map (\header@(name, _) ->
+          fmap (\header@(name, _) ->
             case name of
               "Host" -> hostHeader dest
               _      -> header)
@@ -81,27 +57,8 @@ server :: ServerOptions -> IO ()
 server sopts = do
   manager <- Conduit.newManager Conduit.tlsManagerSettings
   ropts <- atomically defRuntimeOptions
-  _ <- forkIO $ console ropts
+  _ <- forkIO $ consoleThread ropts
   runEnv (sopts ^. port & unPort) (logStdout $ proxy ropts sopts manager)
-
-data CLICommand = CmdQuit | CmdToggleEmpty | CmdUnknown
-  deriving (Show, Eq)
-
-parseCLICommand :: T.Text -> CLICommand
-parseCLICommand input = case T.toLower input of
-  "q" -> CmdQuit
-  "quit" -> CmdQuit
-  "e" -> CmdToggleEmpty
-  "empty" -> CmdToggleEmpty
-  _ -> CmdUnknown
-
-console :: RuntimeOptions -> IO ()
-console ropts = forever $ do
-  putStr "> "
-  IO.hFlush IO.stdout
-  cmd <- parseCLICommand <$> TIO.getLine
-  empty <- atomically . readTVar $ ropts ^. serveEmptyPlaylist
-  print cmd
 
 data PlaylistType = MasterPlaylist | MediaPlaylist | InvalidPlaylist
 
@@ -142,7 +99,7 @@ proxy ropts sopts =
     destBS =
       sopts ^. url & B8.pack
     transform req = do
-      empty <- atomically . readTVar $ ropts ^. serveEmptyPlaylist
+      empty <- atomically . readTVar $ ropts ^. enableEmptyPlaylist
       let pt = playlistType req
       case pt of
         MediaPlaylist -> if empty then respondEmptyEndedPlaylist else passthrough destBS req

@@ -46,6 +46,7 @@ library:
     - stm
   exposed-modules:
     - Lib.Server
+    - Lib.Types
 
 tests:
   spec:
