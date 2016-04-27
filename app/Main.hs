@@ -33,7 +33,7 @@ serverParser progName ver =
          <> Opt.showDefault
          <> Opt.help "Port" )
 
-    versionInfo = Opt.infoOption ( progName ++ showVersion ver )
+    versionInfo = Opt.infoOption ( progName <> showVersion ver )
       ( Opt.short 'V'
      <> Opt.long "version"
      <> Opt.hidden

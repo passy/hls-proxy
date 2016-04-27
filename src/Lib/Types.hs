@@ -3,7 +3,7 @@
 
 module Lib.Types where
 
-import           Control.Concurrent.STM      (STM (), atomically)
+import           Control.Concurrent.STM      (STM ())
 import           Control.Concurrent.STM.TVar (TVar (), newTVar)
 import           Control.Lens                (makeLenses)
 import           Data.Default                (Default (), def)
@@ -30,7 +30,7 @@ makeLenses ''RuntimeOptions
 
 defRuntimeOptions :: STM RuntimeOptions
 defRuntimeOptions = do
-  _serveEmptyPlaylist <- newTVar False
+  _enableEmptyPlaylist <- newTVar False
   return RuntimeOptions {..}
 
 instance Default Port where

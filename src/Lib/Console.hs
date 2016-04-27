@@ -2,10 +2,9 @@
 
 module Lib.Console where
 
-import           Control.Concurrent.STM      (STM (), atomically)
+import           Control.Concurrent.STM      (atomically)
 import           Control.Concurrent.STM.TVar (readTVar)
 import           Control.Monad               (forever)
-import           Data.Default                (Default (), def)
 import qualified Data.Text                   as T
 import qualified Data.Text.IO                as TIO
 import qualified System.IO                   as IO
@@ -30,5 +29,5 @@ consoleThread ropts = forever $ do
   putStr "> "
   IO.hFlush IO.stdout
   cmd <- parseCLICommand <$> TIO.getLine
-  empty <- atomically . readTVar $ ropts ^. enableEmptyPlaylist
+  _empty <- atomically . readTVar $ ropts ^. enableEmptyPlaylist
   print cmd

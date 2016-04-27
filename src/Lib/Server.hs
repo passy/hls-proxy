@@ -10,18 +10,15 @@ module Lib.Server
     ) where
 
 import           Control.Concurrent                   (forkIO)
-import           Control.Concurrent.STM               (STM (), atomically)
-import           Control.Concurrent.STM.TVar          (TVar (), newTVar,
-                                                       readTVar)
-import           Control.Lens                         (makeLenses, (&), (^.))
-import           Control.Monad                        (forever)
+import           Control.Concurrent.STM               (atomically)
+import           Control.Concurrent.STM.TVar          (readTVar)
+import           Control.Lens                         ((&), (^.))
 import qualified Data.ByteString                      as BS
 import qualified Data.ByteString.Char8                as B8
 import           Data.CaseInsensitive                 (CI)
-import           Data.Default                         (Default (), def)
+import           Data.Default                         (def)
 import           Data.Monoid                          ((<>))
 import qualified Data.Text                            as T
-import qualified Data.Text.IO                         as TIO
 import qualified Network.HTTP.Conduit                 as Conduit
 import qualified Network.HTTP.ReverseProxy            as Proxy
 import qualified Network.HTTP.Types.Header            as Header
