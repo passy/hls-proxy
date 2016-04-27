@@ -14,6 +14,7 @@ import           Control.Concurrent.STM               (atomically)
 import           Control.Concurrent.STM.TVar          (readTVar)
 import           Control.Lens                         ((&), (^.))
 import qualified Data.ByteString                      as BS
+import qualified Data.ByteString.Lazy                 as BL
 import qualified Data.ByteString.Char8                as B8
 import           Data.CaseInsensitive                 (CI)
 import           Data.Default                         (def)
@@ -27,16 +28,14 @@ import qualified Network.Wai                          as Wai
 import           Network.Wai.Handler.Warp             (runEnv)
 import           Network.Wai.Middleware.RequestLogger (logStdout)
 import           Safe                                 (lastMay)
-import           System.FilePath                      ((</>))
 
 import           Lib.Console                          (consoleThread)
+import qualified Lib.Files                            as Files
 import           Lib.Types                            (Port,
                                                        RuntimeOptions (..), ServerOptions (ServerOptions),
                                                        defRuntimeOptions,
                                                        enableEmptyPlaylist,
                                                        port, unPort, url)
-
-import           Paths_hls_proxy                      (getDataFileName)
 
 hostHeader :: BS.ByteString -> (CI BS.ByteString, BS.ByteString)
 hostHeader dest = ("Host", dest)
@@ -68,17 +67,12 @@ playlistType r =
     Just False -> MasterPlaylist
     Nothing -> InvalidPlaylist
 
-getDataM3U8 :: FilePath -> IO FilePath
-getDataM3U8 fp =
-  getDataFileName $ "shared" </> "m3u8" </> fp
-
 hlsHeaders :: Header.RequestHeaders
 hlsHeaders = pure (Header.hContentType, "application/x-mpegURL")
 
-mkEmptyEndedPlaylistResponse :: IO Wai.Response
-mkEmptyEndedPlaylistResponse = do
-  path <- getDataM3U8 "event_empty_ended.m3u8"
-  return $ Wai.responseFile Status.status200 (def <> hlsHeaders) path Nothing
+mkEmptyEndedPlaylistResponse :: Wai.Response
+mkEmptyEndedPlaylistResponse =
+  Wai.responseLBS Status.status200 (def <> hlsHeaders) (BL.fromStrict Files.eventEmptyEndedM3U8File)
 
 passthrough :: B8.ByteString -> Wai.Request -> IO Proxy.WaiProxyResponse
 passthrough dest req =
@@ -86,8 +80,8 @@ passthrough dest req =
     (setHostHeaderToDestination dest req)
     (Proxy.ProxyDest dest 443)
 
-respondEmptyEndedPlaylist :: IO Proxy.WaiProxyResponse
-respondEmptyEndedPlaylist = mkEmptyEndedPlaylistResponse >>= pure . Proxy.WPRResponse
+respondEmptyEndedPlaylist :: Proxy.WaiProxyResponse
+respondEmptyEndedPlaylist = Proxy.WPRResponse mkEmptyEndedPlaylistResponse
 
 proxy :: RuntimeOptions -> ServerOptions -> Conduit.Manager -> Wai.Application
 proxy ropts sopts =
@@ -99,5 +93,5 @@ proxy ropts sopts =
       empty <- atomically . readTVar $ ropts ^. enableEmptyPlaylist
       let pt = playlistType req
       case pt of
-        MediaPlaylist -> if empty then respondEmptyEndedPlaylist else passthrough destBS req
+        MediaPlaylist -> if empty then pure respondEmptyEndedPlaylist else passthrough destBS req
         _             -> passthrough destBS req

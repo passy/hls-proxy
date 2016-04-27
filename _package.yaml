@@ -10,8 +10,6 @@ category: Web
 extra-source-files:
   - stack.yaml
   - README.md
-data-files:
-  - shared/m3u8/event_empty_ended.m3u8
 
 ghc-options:
   - -Wall
@@ -44,6 +42,7 @@ library:
     - filepath
     - http-types
     - stm
+    - file-embed
   exposed-modules:
     - Lib.Server
     - Lib.Types

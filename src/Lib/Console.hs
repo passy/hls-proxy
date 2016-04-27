@@ -4,7 +4,7 @@
 module Lib.Console where
 
 import           Control.Concurrent.STM      (atomically)
-import           Control.Concurrent.STM.TVar (modifyTVar, readTVar)
+import           Control.Concurrent.STM.TVar (modifyTVar)
 import           Control.Monad               (forever)
 import qualified Data.Text                   as T
 import qualified Data.Text.IO                as TIO

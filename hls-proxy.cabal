@@ -46,11 +46,13 @@ library
     , filepath
     , http-types
     , stm
+    , file-embed
   exposed-modules:
       Lib.Server
       Lib.Types
   other-modules:
       Lib.Console
+      Lib.Files
       Paths_hls_proxy
   default-language: Haskell2010
 
