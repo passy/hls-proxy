@@ -29,12 +29,12 @@ import           Network.Wai.Middleware.RequestLogger (logStdout)
 import           Safe                                 (lastMay)
 import           System.FilePath                      ((</>))
 
-import           Lib.Types                            (Port, ServerOptions (ServerOptions),
-                                                       RuntimeOptions (..),
+import           Lib.Console                          (consoleThread)
+import           Lib.Types                            (Port,
+                                                       RuntimeOptions (..), ServerOptions (ServerOptions),
                                                        defRuntimeOptions,
                                                        enableEmptyPlaylist,
                                                        port, unPort, url)
-import Lib.Console (consoleThread)
 
 import           Paths_hls_proxy                      (getDataFileName)
 
