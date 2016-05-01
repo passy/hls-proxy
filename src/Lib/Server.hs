@@ -11,11 +11,13 @@ module Lib.Server
 
 import           Control.Concurrent                   (forkIO)
 import           Control.Concurrent.STM               (atomically)
-import           Control.Concurrent.STM.TVar          (readTVar)
-import           Control.Lens                         ((&), (^.))
+import           Control.Concurrent.STM.TVar          (TVar, newTVarIO,
+                                                       readTVar)
+import           Control.Lens                         (view, (&), (^.))
+import           Control.Monad                        (when)
 import qualified Data.ByteString                      as BS
-import qualified Data.ByteString.Lazy                 as BL
 import qualified Data.ByteString.Char8                as B8
+import qualified Data.ByteString.Lazy                 as BL
 import           Data.CaseInsensitive                 (CI)
 import           Data.Default                         (def)
 import           Data.Monoid                          ((<>))
@@ -28,6 +30,7 @@ import qualified Network.Wai                          as Wai
 import           Network.Wai.Handler.Warp             (runEnv)
 import           Network.Wai.Middleware.RequestLogger (logStdout)
 import           Safe                                 (lastMay)
+import           System.Exit                          (exitSuccess)
 
 import           Lib.Console                          (consoleThread)
 import qualified Lib.Files                            as Files
@@ -35,7 +38,8 @@ import           Lib.Types                            (Port,
                                                        RuntimeOptions (..), ServerOptions (ServerOptions),
                                                        defRuntimeOptions,
                                                        enableEmptyPlaylist,
-                                                       port, unPort, url)
+                                                       port, shouldQuit, unPort,
+                                                       url)
 
 hostHeader :: BS.ByteString -> (CI BS.ByteString, BS.ByteString)
 hostHeader dest = ("Host", dest)
@@ -52,7 +56,7 @@ setHostHeaderToDestination dest req =
 server :: ServerOptions -> IO ()
 server sopts = do
   manager <- Conduit.newManager Conduit.tlsManagerSettings
-  ropts <- atomically defRuntimeOptions
+  ropts <- newTVarIO defRuntimeOptions
   _ <- forkIO $ consoleThread ropts
   runEnv (sopts ^. port & unPort) (logStdout $ proxy ropts sopts manager)
 
@@ -83,15 +87,15 @@ passthrough dest req =
 respondEmptyEndedPlaylist :: Proxy.WaiProxyResponse
 respondEmptyEndedPlaylist = Proxy.WPRResponse mkEmptyEndedPlaylistResponse
 
-proxy :: RuntimeOptions -> ServerOptions -> Conduit.Manager -> Wai.Application
+proxy :: TVar RuntimeOptions -> ServerOptions -> Conduit.Manager -> Wai.Application
 proxy ropts sopts =
   Proxy.waiProxyToSettings transform def
   where
     destBS =
       sopts ^. url & B8.pack
     transform req = do
-      empty <- atomically . readTVar $ ropts ^. enableEmptyPlaylist
+      opts <- atomically $ readTVar ropts
       let pt = playlistType req
       case pt of
-        MediaPlaylist -> if empty then pure respondEmptyEndedPlaylist else passthrough destBS req
+        MediaPlaylist -> if opts ^. enableEmptyPlaylist then pure respondEmptyEndedPlaylist else passthrough destBS req
         _             -> passthrough destBS req

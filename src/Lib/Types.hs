@@ -6,6 +6,7 @@ module Lib.Types where
 
 import           Control.Concurrent.STM      (STM ())
 import           Control.Concurrent.STM.TVar (TVar (), newTVar, readTVar)
+import           Control.Concurrent.STM.TMVar
 import           Control.Lens                (makeLenses, (^.))
 import           Data.Default                (Default (), def)
 import           Data.Monoid                 ((<>))
@@ -26,22 +27,25 @@ data ServerOptions = ServerOptions
 makeLenses ''ServerOptions
 
 data RuntimeOptions = RuntimeOptions
-  { _enableEmptyPlaylist :: TVar Bool
+  { _enableEmptyPlaylist :: Bool
+  , _shouldQuit :: Bool
   }
 
 makeLenses ''RuntimeOptions
 
-defRuntimeOptions :: STM RuntimeOptions
-defRuntimeOptions = do
-  _enableEmptyPlaylist <- newTVar False
-  return RuntimeOptions {..}
+defRuntimeOptions :: RuntimeOptions
+defRuntimeOptions = RuntimeOptions
+  { _enableEmptyPlaylist = False
+  , _shouldQuit = False
+  }
 
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
 
-showRuntimeOptions :: RuntimeOptions -> STM T.Text
+showRuntimeOptions :: TVar RuntimeOptions -> STM T.Text
 showRuntimeOptions ropts = do
-  _enableEmptyPlaylist <- readTVar $ ropts ^. enableEmptyPlaylist
+  ropts' <- readTVar ropts
+  let _enableEmptyPlaylist = ropts' ^. enableEmptyPlaylist
   return $ "{ enableEmptyPlaylist = " <> tshow _enableEmptyPlaylist <> " }"
 
 instance Default Port where

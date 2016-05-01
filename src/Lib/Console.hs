@@ -4,16 +4,16 @@
 module Lib.Console where
 
 import           Control.Concurrent.STM      (atomically)
-import           Control.Concurrent.STM.TVar (modifyTVar)
+import           Control.Concurrent.STM.TVar (TVar, modifyTVar, readTVar)
 import           Control.Monad               (forever)
 import qualified Data.Text                   as T
 import qualified Data.Text.IO                as TIO
 import           System.Exit                 (exitSuccess)
 import qualified System.IO                   as IO
 
-import           Control.Lens                ((^.))
+import           Control.Lens                (set, over, (^.))
 import           Lib.Types                   (RuntimeOptions,
-                                              enableEmptyPlaylist,
+                                              enableEmptyPlaylist, shouldQuit,
                                               showRuntimeOptions)
 
 data CLICommand = CmdQuit | CmdToggleEmpty | CmdShow | CmdUnknown
@@ -29,14 +29,16 @@ parseCLICommand input = case T.toLower input of
   "show" -> CmdShow
   _ -> CmdUnknown
 
-interpret :: RuntimeOptions -> CLICommand -> IO ()
+interpret :: TVar RuntimeOptions -> CLICommand -> IO ()
 interpret ropts = \case
-  CmdQuit -> exitSuccess
-  CmdToggleEmpty -> atomically $ modifyTVar (ropts ^. enableEmptyPlaylist) not
+  CmdQuit -> do
+    atomically $ modifyTVar ropts (set shouldQuit True)
+    exitSuccess
+  CmdToggleEmpty -> atomically $ modifyTVar ropts (over enableEmptyPlaylist not)
   CmdShow -> TIO.putStrLn =<< atomically (showRuntimeOptions ropts)
   CmdUnknown -> TIO.putStrLn "!! Unknown Command"
 
-consoleThread :: RuntimeOptions -> IO ()
+consoleThread :: TVar RuntimeOptions -> IO ()
 consoleThread ropts = forever $ do
   putStr "> "
   IO.hFlush IO.stdout
