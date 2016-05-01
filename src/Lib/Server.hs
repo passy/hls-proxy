@@ -11,10 +11,11 @@ module Lib.Server
 
 import           Control.Concurrent                   (forkIO)
 import           Control.Concurrent.STM               (atomically)
+import qualified Control.Concurrent.MVar as MVar
 import           Control.Concurrent.STM.TVar          (TVar, newTVarIO,
                                                        readTVar)
 import           Control.Lens                         (view, (&), (^.))
-import           Control.Monad                        (when)
+import           Control.Monad                        (when, void)
 import qualified Data.ByteString                      as BS
 import qualified Data.ByteString.Char8                as B8
 import qualified Data.ByteString.Lazy                 as BL
@@ -27,7 +28,7 @@ import qualified Network.HTTP.ReverseProxy            as Proxy
 import qualified Network.HTTP.Types.Header            as Header
 import qualified Network.HTTP.Types.Status            as Status
 import qualified Network.Wai                          as Wai
-import           Network.Wai.Handler.Warp             (runEnv)
+import qualified Network.Wai.Handler.Warp             as Warp
 import           Network.Wai.Middleware.RequestLogger (logStdout)
 import           Safe                                 (lastMay)
 import           System.Exit                          (exitSuccess)
@@ -38,7 +39,7 @@ import           Lib.Types                            (Port,
                                                        RuntimeOptions (..), ServerOptions (ServerOptions),
                                                        defRuntimeOptions,
                                                        enableEmptyPlaylist,
-                                                       port, shouldQuit, unPort,
+                                                       port, unPort,
                                                        url)
 
 hostHeader :: BS.ByteString -> (CI BS.ByteString, BS.ByteString)
@@ -53,12 +54,18 @@ setHostHeaderToDestination dest req =
               "Host" -> hostHeader dest
               _      -> header)
 
+mkSettings :: MVar.MVar () -> ServerOptions -> Warp.Settings
+mkSettings poison sopts =
+  Warp.setPort (sopts ^. port & unPort) . Warp.setInstallShutdownHandler (void . shutdownHandler) $ Warp.defaultSettings
+  where shutdownHandler cb = forkIO $ MVar.takeMVar poison >> cb
+
 server :: ServerOptions -> IO ()
 server sopts = do
   manager <- Conduit.newManager Conduit.tlsManagerSettings
   ropts <- newTVarIO defRuntimeOptions
-  _ <- forkIO $ consoleThread ropts
-  runEnv (sopts ^. port & unPort) (logStdout $ proxy ropts sopts manager)
+  poison <- MVar.newEmptyMVar
+  _ <- forkIO $ consoleThread poison ropts
+  Warp.runSettings (mkSettings poison sopts) (logStdout $ proxy ropts sopts manager)
 
 data PlaylistType = MasterPlaylist | MediaPlaylist | InvalidPlaylist
 

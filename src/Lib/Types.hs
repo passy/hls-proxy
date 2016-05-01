@@ -28,7 +28,6 @@ makeLenses ''ServerOptions
 
 data RuntimeOptions = RuntimeOptions
   { _enableEmptyPlaylist :: Bool
-  , _shouldQuit :: Bool
   }
 
 makeLenses ''RuntimeOptions
@@ -36,7 +35,6 @@ makeLenses ''RuntimeOptions
 defRuntimeOptions :: RuntimeOptions
 defRuntimeOptions = RuntimeOptions
   { _enableEmptyPlaylist = False
-  , _shouldQuit = False
   }
 
 tshow :: Show a => a -> T.Text
