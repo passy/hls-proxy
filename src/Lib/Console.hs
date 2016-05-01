@@ -3,16 +3,16 @@
 
 module Lib.Console where
 
+import qualified Control.Concurrent.MVar     as MVar
 import           Control.Concurrent.STM      (atomically)
-import qualified Control.Concurrent.MVar as MVar
-import           Control.Concurrent.STM.TVar (TVar, modifyTVar, readTVar)
+import           Control.Concurrent.STM.TVar (TVar, modifyTVar)
 import           Control.Monad               (forever)
 import qualified Data.Text                   as T
 import qualified Data.Text.IO                as TIO
 import           System.Exit                 (exitSuccess)
 import qualified System.IO                   as IO
 
-import           Control.Lens                (set, over, (^.))
+import           Control.Lens                (over)
 import           Lib.Types                   (RuntimeOptions,
                                               enableEmptyPlaylist,
                                               showRuntimeOptions)

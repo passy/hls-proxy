@@ -10,12 +10,12 @@ module Lib.Server
     ) where
 
 import           Control.Concurrent                   (forkIO)
+import qualified Control.Concurrent.MVar              as MVar
 import           Control.Concurrent.STM               (atomically)
-import qualified Control.Concurrent.MVar as MVar
 import           Control.Concurrent.STM.TVar          (TVar, newTVarIO,
                                                        readTVar)
 import           Control.Lens                         (view, (&), (^.))
-import           Control.Monad                        (when, void)
+import           Control.Monad                        (void, when)
 import qualified Data.ByteString                      as BS
 import qualified Data.ByteString.Char8                as B8
 import qualified Data.ByteString.Lazy                 as BL
@@ -39,8 +39,7 @@ import           Lib.Types                            (Port,
                                                        RuntimeOptions (..), ServerOptions (ServerOptions),
                                                        defRuntimeOptions,
                                                        enableEmptyPlaylist,
-                                                       port, unPort,
-                                                       url)
+                                                       port, unPort, url)
 
 hostHeader :: BS.ByteString -> (CI BS.ByteString, BS.ByteString)
 hostHeader dest = ("Host", dest)

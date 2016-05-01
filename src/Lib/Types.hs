@@ -5,8 +5,7 @@
 module Lib.Types where
 
 import           Control.Concurrent.STM      (STM ())
-import           Control.Concurrent.STM.TVar (TVar (), newTVar, readTVar)
-import           Control.Concurrent.STM.TMVar
+import           Control.Concurrent.STM.TVar (TVar (), readTVar)
 import           Control.Lens                (makeLenses, (^.))
 import           Data.Default                (Default (), def)
 import           Data.Monoid                 ((<>))
