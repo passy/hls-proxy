@@ -14,8 +14,8 @@ import qualified Control.Concurrent.MVar              as MVar
 import           Control.Concurrent.STM               (atomically)
 import           Control.Concurrent.STM.TVar          (TVar, newTVarIO,
                                                        readTVar)
-import           Control.Lens                         (view, (&), (^.))
-import           Control.Monad                        (void, when)
+import           Control.Lens                         ((&), (^.))
+import           Control.Monad                        (void)
 import qualified Data.ByteString                      as BS
 import qualified Data.ByteString.Char8                as B8
 import qualified Data.ByteString.Lazy                 as BL
@@ -31,7 +31,6 @@ import qualified Network.Wai                          as Wai
 import qualified Network.Wai.Handler.Warp             as Warp
 import           Network.Wai.Middleware.RequestLogger (logStdout)
 import           Safe                                 (lastMay)
-import           System.Exit                          (exitSuccess)
 
 import           Lib.Console                          (consoleThread)
 import qualified Lib.Files                            as Files

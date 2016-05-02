@@ -1,12 +1,15 @@
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Lib.Console where
 
+import           Control.Applicative         ((<|>))
 import qualified Control.Concurrent.MVar     as MVar
 import           Control.Concurrent.STM      (atomically)
 import           Control.Concurrent.STM.TVar (TVar, modifyTVar)
 import           Control.Monad               (forever)
+import           Control.Monad               (void)
 import qualified Data.Text                   as T
 import qualified Data.Text.IO                as TIO
 import           System.Exit                 (exitSuccess)
@@ -17,18 +20,29 @@ import           Lib.Types                   (RuntimeOptions,
                                               enableEmptyPlaylist,
                                               showRuntimeOptions)
 
+import qualified Text.Megaparsec             as M
+import qualified Text.Megaparsec.Text        as M
+
 data CLICommand = CmdQuit | CmdToggleEmpty | CmdShow | CmdUnknown
   deriving (Show, Eq)
 
+cliCommandParser :: M.Parser CLICommand
+cliCommandParser =
+        p "quit" CmdQuit
+    <|> p "empty" CmdToggleEmpty
+    <|> p "show" CmdShow
+  where
+    p :: String -> a -> M.Parser a
+    p []          _   = fail "Invalid CLI pattern."
+    p token@(t:_) cmd = do
+      -- TODO: Applicative
+      _ <- void . M.try $ M.string (pure t) <|> M.string token
+      return cmd
+
 parseCLICommand :: T.Text -> CLICommand
-parseCLICommand input = case T.toLower input of
-  "q" -> CmdQuit
-  "quit" -> CmdQuit
-  "e" -> CmdToggleEmpty
-  "empty" -> CmdToggleEmpty
-  "s" -> CmdShow
-  "show" -> CmdShow
-  _ -> CmdUnknown
+parseCLICommand input = case M.parse cliCommandParser "<input>" input of
+  Right cmd -> cmd
+  Left _ -> CmdUnknown
 
 interpret :: MVar.MVar () -> TVar RuntimeOptions -> CLICommand -> IO ()
 interpret poison ropts = \case

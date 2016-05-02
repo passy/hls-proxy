@@ -31,18 +31,19 @@ library:
     - conduit-extra
     - containers
     - data-default
+    - file-embed
+    - filepath
     - http-conduit
     - http-reverse-proxy
+    - http-types
     - lens
+    - megaparsec
+    - safe
+    - stm
     - transformers
     - wai
     - wai-extra
     - warp
-    - safe
-    - filepath
-    - http-types
-    - stm
-    - file-embed
   exposed-modules:
     - Lib.Server
     - Lib.Types
