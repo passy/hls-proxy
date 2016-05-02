@@ -3,15 +3,16 @@
 
 module Lib.Console where
 
+import qualified Control.Concurrent.MVar     as MVar
 import           Control.Concurrent.STM      (atomically)
-import           Control.Concurrent.STM.TVar (modifyTVar)
+import           Control.Concurrent.STM.TVar (TVar, modifyTVar)
 import           Control.Monad               (forever)
 import qualified Data.Text                   as T
 import qualified Data.Text.IO                as TIO
 import           System.Exit                 (exitSuccess)
 import qualified System.IO                   as IO
 
-import           Control.Lens                ((^.))
+import           Control.Lens                (over)
 import           Lib.Types                   (RuntimeOptions,
                                               enableEmptyPlaylist,
                                               showRuntimeOptions)
@@ -29,15 +30,15 @@ parseCLICommand input = case T.toLower input of
   "show" -> CmdShow
   _ -> CmdUnknown
 
-interpret :: RuntimeOptions -> CLICommand -> IO ()
-interpret ropts = \case
-  CmdQuit -> exitSuccess
-  CmdToggleEmpty -> atomically $ modifyTVar (ropts ^. enableEmptyPlaylist) not
+interpret :: MVar.MVar () -> TVar RuntimeOptions -> CLICommand -> IO ()
+interpret poison ropts = \case
+  CmdQuit -> MVar.putMVar poison () >> exitSuccess
+  CmdToggleEmpty -> atomically $ modifyTVar ropts (over enableEmptyPlaylist not)
   CmdShow -> TIO.putStrLn =<< atomically (showRuntimeOptions ropts)
   CmdUnknown -> TIO.putStrLn "!! Unknown Command"
 
-consoleThread :: RuntimeOptions -> IO ()
-consoleThread ropts = forever $ do
+consoleThread :: MVar.MVar () -> TVar RuntimeOptions -> IO ()
+consoleThread poison ropts = forever $ do
   putStr "> "
   IO.hFlush IO.stdout
-  interpret ropts =<< parseCLICommand <$> TIO.getLine
+  interpret poison ropts =<< parseCLICommand <$> TIO.getLine

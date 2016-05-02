@@ -10,12 +10,15 @@ module Lib.Server
     ) where
 
 import           Control.Concurrent                   (forkIO)
+import qualified Control.Concurrent.MVar              as MVar
 import           Control.Concurrent.STM               (atomically)
-import           Control.Concurrent.STM.TVar          (readTVar)
-import           Control.Lens                         ((&), (^.))
+import           Control.Concurrent.STM.TVar          (TVar, newTVarIO,
+                                                       readTVar)
+import           Control.Lens                         (view, (&), (^.))
+import           Control.Monad                        (void, when)
 import qualified Data.ByteString                      as BS
-import qualified Data.ByteString.Lazy                 as BL
 import qualified Data.ByteString.Char8                as B8
+import qualified Data.ByteString.Lazy                 as BL
 import           Data.CaseInsensitive                 (CI)
 import           Data.Default                         (def)
 import           Data.Monoid                          ((<>))
@@ -25,9 +28,10 @@ import qualified Network.HTTP.ReverseProxy            as Proxy
 import qualified Network.HTTP.Types.Header            as Header
 import qualified Network.HTTP.Types.Status            as Status
 import qualified Network.Wai                          as Wai
-import           Network.Wai.Handler.Warp             (runEnv)
+import qualified Network.Wai.Handler.Warp             as Warp
 import           Network.Wai.Middleware.RequestLogger (logStdout)
 import           Safe                                 (lastMay)
+import           System.Exit                          (exitSuccess)
 
 import           Lib.Console                          (consoleThread)
 import qualified Lib.Files                            as Files
@@ -49,12 +53,18 @@ setHostHeaderToDestination dest req =
               "Host" -> hostHeader dest
               _      -> header)
 
+mkSettings :: MVar.MVar () -> ServerOptions -> Warp.Settings
+mkSettings poison sopts =
+  Warp.setPort (sopts ^. port & unPort) . Warp.setInstallShutdownHandler (void . shutdownHandler) $ Warp.defaultSettings
+  where shutdownHandler cb = forkIO $ MVar.takeMVar poison >> cb
+
 server :: ServerOptions -> IO ()
 server sopts = do
   manager <- Conduit.newManager Conduit.tlsManagerSettings
-  ropts <- atomically defRuntimeOptions
-  _ <- forkIO $ consoleThread ropts
-  runEnv (sopts ^. port & unPort) (logStdout $ proxy ropts sopts manager)
+  ropts <- newTVarIO defRuntimeOptions
+  poison <- MVar.newEmptyMVar
+  _ <- forkIO $ consoleThread poison ropts
+  Warp.runSettings (mkSettings poison sopts) (logStdout $ proxy ropts sopts manager)
 
 data PlaylistType = MasterPlaylist | MediaPlaylist | InvalidPlaylist
 
@@ -83,15 +93,15 @@ passthrough dest req =
 respondEmptyEndedPlaylist :: Proxy.WaiProxyResponse
 respondEmptyEndedPlaylist = Proxy.WPRResponse mkEmptyEndedPlaylistResponse
 
-proxy :: RuntimeOptions -> ServerOptions -> Conduit.Manager -> Wai.Application
+proxy :: TVar RuntimeOptions -> ServerOptions -> Conduit.Manager -> Wai.Application
 proxy ropts sopts =
   Proxy.waiProxyToSettings transform def
   where
     destBS =
       sopts ^. url & B8.pack
     transform req = do
-      empty <- atomically . readTVar $ ropts ^. enableEmptyPlaylist
+      opts <- atomically $ readTVar ropts
       let pt = playlistType req
       case pt of
-        MediaPlaylist -> if empty then pure respondEmptyEndedPlaylist else passthrough destBS req
+        MediaPlaylist -> if opts ^. enableEmptyPlaylist then pure respondEmptyEndedPlaylist else passthrough destBS req
         _             -> passthrough destBS req
