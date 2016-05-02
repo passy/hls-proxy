@@ -9,7 +9,7 @@ import qualified Control.Concurrent.MVar     as MVar
 import           Control.Concurrent.STM      (atomically)
 import           Control.Concurrent.STM.TVar (TVar, modifyTVar)
 import           Control.Monad               (forever)
-import           Control.Monad               (void)
+import           Data.Monoid                 ((<>))
 import qualified Data.Text                   as T
 import qualified Data.Text.IO                as TIO
 import           System.Exit                 (exitSuccess)
@@ -23,7 +23,7 @@ import           Lib.Types                   (RuntimeOptions,
 import qualified Text.Megaparsec             as M
 import qualified Text.Megaparsec.Text        as M
 
-data CLICommand = CmdQuit | CmdToggleEmpty | CmdShow | CmdUnknown
+data CLICommand = CmdQuit | CmdToggleEmpty | CmdShow | CmdUnknown (Maybe M.ParseError)
   deriving (Show, Eq)
 
 cliCommandParser :: M.Parser CLICommand
@@ -33,23 +33,23 @@ cliCommandParser =
     <|> p "show" CmdShow
   where
     p :: String -> a -> M.Parser a
-    p []          _   = fail "Invalid CLI pattern."
-    p token@(t:_) cmd = do
-      -- TODO: Applicative
-      _ <- void . M.try $ M.string (pure t) <|> M.string token
-      return cmd
+    p []          _   =
+      fail "Invalid CLI pattern."
+    p token@(t:_) cmd =
+       M.try (M.string (pure t) <|> M.string token) *> pure cmd
 
 parseCLICommand :: T.Text -> CLICommand
 parseCLICommand input = case M.parse cliCommandParser "<input>" input of
   Right cmd -> cmd
-  Left _ -> CmdUnknown
+  Left  err -> CmdUnknown $ pure err
 
 interpret :: MVar.MVar () -> TVar RuntimeOptions -> CLICommand -> IO ()
 interpret poison ropts = \case
   CmdQuit -> MVar.putMVar poison () >> exitSuccess
   CmdToggleEmpty -> atomically $ modifyTVar ropts (over enableEmptyPlaylist not)
   CmdShow -> TIO.putStrLn =<< atomically (showRuntimeOptions ropts)
-  CmdUnknown -> TIO.putStrLn "!! Unknown Command"
+  CmdUnknown Nothing -> TIO.putStrLn "!! Unknown Command"
+  CmdUnknown (Just err) -> TIO.putStrLn $ "!! Error: " <> T.pack (show err)
 
 consoleThread :: MVar.MVar () -> TVar RuntimeOptions -> IO ()
 consoleThread poison ropts = forever $ do
