@@ -36,8 +36,7 @@ cliCommandParser =
     p []          _   =
       fail "Invalid CLI pattern."
     p token@(t:_) cmd =
-       -- TODO: Be greedy here. "efwhferhg" shouldn't match empty.
-       M.try (M.string (pure t) <|> M.string token) *> pure cmd
+      (M.try (M.char t *> M.eof) <|> (M.string token *> M.eof)) *> pure cmd
 
 parseCLICommand :: T.Text -> CLICommand
 parseCLICommand input = case M.parse cliCommandParser "<input>" input of
