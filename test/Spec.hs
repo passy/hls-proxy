@@ -1,14 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 
-import           Control.Monad.IO.Class (liftIO)
-import qualified Data.Either            as Either
-import qualified Data.Text              as T
-import qualified Data.Text.IO           as TIO
-import qualified Lib.HLS.Parse          as HLS
-import           System.Directory       (getCurrentDirectory)
-import           System.FilePath        ((</>))
+import           Control.Monad.IO.Class       (liftIO)
+import qualified Data.Either                  as Either
+import qualified Data.Text                    as T
+import qualified Data.Text.IO                 as TIO
+import qualified Lib.HLS.Parse                as HLS
+import           System.Directory             (getCurrentDirectory)
+import           System.FilePath              ((</>))
 import           Test.Hspec
+import           Test.Hspec.Expectations.Lens (shouldView, through)
 
 openFixture :: forall a. (FilePath -> IO a) -> FilePath -> IO a
 openFixture f path = do
@@ -26,3 +27,8 @@ main = hspec .
     let res = HLS.parseHlsPlaylist doc
 
     res `shouldSatisfy` Either.isRight
+    unsafeFromRight res `shouldView` 3 `through` HLS.hlsVersion
+
+unsafeFromRight :: Either a b -> b
+unsafeFromRight (Right r) = r
+unsafeFromRight (Left _)  = error "Left"

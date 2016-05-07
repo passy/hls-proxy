@@ -57,6 +57,7 @@ tests:
     dependencies:
       - hls-proxy
       - hspec
+      - hspec-expectations-lens
       - lens
       - directory
       - filepath

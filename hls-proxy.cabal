@@ -87,6 +87,7 @@ test-suite spec
     , network-uri
     , hls-proxy
     , hspec
+    , hspec-expectations-lens
     , lens
     , directory
     , filepath
