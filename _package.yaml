@@ -63,6 +63,9 @@ tests:
       - filepath
       - transformers
       - containers
+      - either
+      - safe
+      - megaparsec
 
 executables:
   hls-proxy:

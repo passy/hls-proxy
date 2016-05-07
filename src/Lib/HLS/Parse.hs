@@ -37,7 +37,7 @@ extm3u = ext *> void (M.string "M3U") *> void M.newline
 versionParser :: M.Parser HLSVersion
 versionParser = do
   extx "VERSION"
-  v <- fromInteger <$> M.integer -- Ignoring potential overflow
+  v <- M.hidden $ fromInteger <$> M.integer -- Ignoring potential overflow
   if v <= maxSupportedVersionNumber
     then return $ HLSVersion v
     else M.unexpected $ "Unsupported version " <> show v

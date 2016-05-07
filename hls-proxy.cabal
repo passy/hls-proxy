@@ -93,4 +93,7 @@ test-suite spec
     , filepath
     , transformers
     , containers
+    , either
+    , safe
+    , megaparsec
   default-language: Haskell2010

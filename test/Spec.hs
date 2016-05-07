@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes        #-}
 
 import           Control.Monad.IO.Class       (liftIO)
-import qualified Data.Either                  as Either
+import qualified Data.Either.Combinators      as Either
 import qualified Data.Text                    as T
 import qualified Data.Text.IO                 as TIO
 import qualified Lib.HLS.Parse                as HLS
@@ -10,6 +10,7 @@ import           System.Directory             (getCurrentDirectory)
 import           System.FilePath              ((</>))
 import           Test.Hspec
 import           Test.Hspec.Expectations.Lens (shouldView, through)
+import qualified Text.Megaparsec              as M
 
 openFixture :: forall a. (FilePath -> IO a) -> FilePath -> IO a
 openFixture f path = do
@@ -34,7 +35,8 @@ main = hspec .
       let res = HLS.parseHlsPlaylist doc
 
       res `shouldSatisfy` Either.isLeft
+      M.errorMessages (Either.fromLeft mempty res) `shouldBe` pure (M.Unexpected "Unsupported version 88")
 
 unsafeFromRight :: Either a b -> b
-unsafeFromRight (Right r) = r
-unsafeFromRight (Left _)  = error "Left"
+unsafeFromRight (Right a) = a
+unsafeFromRight (Left _) = error "Left"
