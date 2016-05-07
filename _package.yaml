@@ -47,6 +47,7 @@ library:
   exposed-modules:
     - Lib.Server
     - Lib.Types
+    - Lib.HLS.Parse
 
 tests:
   spec:
@@ -57,6 +58,9 @@ tests:
       - hls-proxy
       - hspec
       - lens
+      - directory
+      - filepath
+      - transformers
       - containers
 
 executables:
