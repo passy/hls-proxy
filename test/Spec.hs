@@ -21,13 +21,19 @@ openTextFixture = openFixture TIO.readFile
 
 main :: IO ()
 main = hspec .
-  describe "HLS Parser" .
+  describe "HLS Parser" $ do
     it "read master playlist version" $ do
-    doc <- liftIO $ openTextFixture "master-playlist.m3u8"
-    let res = HLS.parseHlsPlaylist doc
+      doc <- liftIO $ openTextFixture "master-playlist.m3u8"
+      let res = HLS.parseHlsPlaylist doc
 
-    res `shouldSatisfy` Either.isRight
-    unsafeFromRight res `shouldView` 3 `through` HLS.hlsVersion
+      res `shouldSatisfy` Either.isRight
+      unsafeFromRight res `shouldView` HLS.HLSVersion 3 `through` HLS.hlsVersion
+
+    it "rejects invalid versioned master playlists" $ do
+      doc <- liftIO $ openTextFixture "master-playlist-invalid-version.m3u8"
+      let res = HLS.parseHlsPlaylist doc
+
+      res `shouldSatisfy` Either.isLeft
 
 unsafeFromRight :: Either a b -> b
 unsafeFromRight (Right r) = r
