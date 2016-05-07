@@ -48,6 +48,7 @@ library
   exposed-modules:
       Lib.Server
       Lib.Types
+      Lib.HLS.Parse
   other-modules:
       Lib.Console
       Lib.Files
@@ -86,6 +87,13 @@ test-suite spec
     , network-uri
     , hls-proxy
     , hspec
+    , hspec-expectations-lens
     , lens
+    , directory
+    , filepath
+    , transformers
     , containers
+    , either
+    , safe
+    , megaparsec
   default-language: Haskell2010
