@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes        #-}
 
 import           Control.Lens                 (to)
-import           Control.Monad.IO.Class       (liftIO)
+import           Control.Monad.IO.Class       (liftIO, MonadIO)
 import qualified Data.Either.Combinators      as Either
 import qualified Data.Text                    as T
 import qualified Data.Text.IO                 as TIO
@@ -25,24 +25,22 @@ main :: IO ()
 main = hspec .
   describe "HLS Parser" $ do
     it "read master playlist version" $ do
-      doc <- liftIO $ openTextFixture "master-playlist.m3u8"
-      let res = HLS.parseHlsPlaylist doc
+      masterPlaylist <- openFixturePlaylist "master-playlist.m3u8"
 
-      res `shouldSatisfy` Either.isRight
-      unsafeFromRight res `shouldView` HLS.HLSVersion 3 `through` HLS.hlsVersion
+      masterPlaylist `shouldSatisfy` Either.isRight
+      unsafeFromRight masterPlaylist `shouldView` HLS.HLSVersion 3 `through` HLS.hlsVersion
 
     it "rejects invalid versioned master playlists" $ do
-      doc <- liftIO $ openTextFixture "master-playlist-invalid-version.m3u8"
-      let res = HLS.parseHlsPlaylist doc
-
-      res `shouldSatisfy` Either.isLeft
-      M.errorMessages (Either.fromLeft mempty res) `shouldBe` pure (M.Unexpected "Unsupported version 88")
+      masterPlaylist <- openFixturePlaylist "master-playlist-invalid-version.m3u8"
+      masterPlaylist `shouldSatisfy` Either.isLeft
+      M.errorMessages (Either.fromLeft mempty masterPlaylist) `shouldBe` pure (M.Unexpected "Unsupported version 88")
 
     it "extracts media playlist URIs" $ do
-      doc <- liftIO $ openTextFixture "master-playlist.m3u8"
-      let res = HLS.parseHlsPlaylist doc
+      masterPlaylist <- openFixturePlaylist "master-playlist.m3u8"
+      unsafeFromRight masterPlaylist `shouldView` 2 `through` HLS.hlsEntries . to length
 
-      unsafeFromRight res `shouldView` 2 `through` HLS.hlsEntries . to length
+openFixturePlaylist :: MonadIO m => FilePath -> m (Either M.ParseError HLS.HLSPlaylist)
+openFixturePlaylist = liftIO . fmap HLS.parseHlsPlaylist . openTextFixture
 
 unsafeFromRight :: Either a b -> b
 unsafeFromRight (Right a) = a

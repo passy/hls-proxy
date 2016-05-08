@@ -5,13 +5,15 @@
 -- | A very, very incomplete parser for HLS draft 19, version 3.
 module Lib.HLS.Parse where
 
+-- TODO: Reexport M.ParseError
+
 import           Control.Lens          (makeLenses)
 import           Control.Monad         (void)
 import           Data.Monoid           ((<>))
 import qualified Network.URI as URI
 import qualified Data.Text             as T
 import qualified Text.Megaparsec       as M
-import qualified Text.Megaparsec.Lexer as M
+import qualified Text.Megaparsec.Lexer as L
 import qualified Text.Megaparsec.Text  as M
 
 import Data.Maybe (fromJust)
@@ -42,12 +44,12 @@ extx :: String -> M.Parser ()
 extx s = ext *> void (M.string ("-X-" <> s <> ":"))
 
 extm3u :: M.Parser ()
-extm3u = ext *> void (M.string "M3U") *> void M.newline
+extm3u = ext *> void (M.string "M3U")
 
 versionParser :: M.Parser HLSVersion
 versionParser = do
   extx "VERSION"
-  v <- M.hidden $ fromInteger <$> M.integer -- Ignoring potential overflow
+  v <- M.hidden $ fromInteger <$> L.integer -- Ignoring potential overflow
   if v <= maxSupportedVersionNumber
     then return $ HLSVersion v
     else M.unexpected $ "Unsupported version " <> show v
@@ -62,8 +64,11 @@ entryParser =
 
 hlsPlaylistParser :: M.Parser HLSPlaylist
 hlsPlaylistParser = do
-  extm3u
-  _hlsVersion <- versionParser
+  extm3u <* M.newline
+  _hlsVersion <- versionParser <* M.newline
+  _hlsEntries <- M.some entryParser
+  M.space
+  M.eof
 
   return HLSPlaylist { .. }
 
