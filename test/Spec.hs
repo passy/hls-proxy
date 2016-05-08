@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 
+import           Control.Lens                 (to)
 import           Control.Monad.IO.Class       (liftIO)
 import qualified Data.Either.Combinators      as Either
 import qualified Data.Text                    as T
@@ -36,6 +37,12 @@ main = hspec .
 
       res `shouldSatisfy` Either.isLeft
       M.errorMessages (Either.fromLeft mempty res) `shouldBe` pure (M.Unexpected "Unsupported version 88")
+
+    it "extracts media playlist URIs" $ do
+      doc <- liftIO $ openTextFixture "master-playlist.m3u8"
+      let res = HLS.parseHlsPlaylist doc
+
+      unsafeFromRight res `shouldView` 2 `through` HLS.hlsEntries . to length
 
 unsafeFromRight :: Either a b -> b
 unsafeFromRight (Right a) = a

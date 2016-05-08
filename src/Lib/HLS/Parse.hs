@@ -8,10 +8,13 @@ module Lib.HLS.Parse where
 import           Control.Lens          (makeLenses)
 import           Control.Monad         (void)
 import           Data.Monoid           ((<>))
+import qualified Network.URI as URI
 import qualified Data.Text             as T
 import qualified Text.Megaparsec       as M
 import qualified Text.Megaparsec.Lexer as M
 import qualified Text.Megaparsec.Text  as M
+
+import Data.Maybe (fromJust)
 
 maxSupportedVersionNumber :: Int
 maxSupportedVersionNumber = 3
@@ -19,8 +22,15 @@ maxSupportedVersionNumber = 3
 newtype HLSVersion = HLSVersion Int
   deriving (Eq, Show)
 
+newtype HLSURI = HLSURI URI.URI
+  deriving (Eq, Show)
+
+data HLSTag = HLSTag
+  deriving (Eq, Show)
+
 data HLSPlaylist = HLSPlaylist
   { _hlsVersion :: HLSVersion
+  , _hlsEntries :: [(HLSURI, [HLSTag])]
   } deriving (Eq, Show)
 
 makeLenses ''HLSPlaylist
@@ -41,6 +51,14 @@ versionParser = do
   if v <= maxSupportedVersionNumber
     then return $ HLSVersion v
     else M.unexpected $ "Unsupported version " <> show v
+
+
+entryParser :: M.Parser (HLSURI, [HLSTag])
+entryParser =
+  (,) <$> uriParser <*> M.some tagParser
+  where
+    tagParser = ext <* M.skipSome M.anyChar <* M.eol *> pure HLSTag
+    uriParser = pure . HLSURI . fromJust $ URI.parseURI "https://example.com/path.m3u8"
 
 hlsPlaylistParser :: M.Parser HLSPlaylist
 hlsPlaylistParser = do
