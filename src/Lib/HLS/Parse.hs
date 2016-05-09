@@ -60,23 +60,26 @@ versionParser = do
   v <- M.hidden $ fromInteger <$> L.integer -- Ignoring potential overflow
   if v <= maxSupportedVersionNumber
     then return $ HLSVersion v
-    else M.unexpected $ "Unsupported version " <> show v
+    else fail $ "Unsupported version " <> show v
 
 maybeParse :: String -> Maybe a -> M.Parser a
 maybeParse tag = \case
   Just a  -> pure a
-  Nothing -> M.unexpected tag
+  Nothing -> fail $ "Unexpected " <> tag
 
 entryParser :: M.Parser HLSEntry
-entryParser =
-  flip (,) <$> M.sepEndBy1 tagParser M.newline <*> uriParser
+entryParser = do
+  tags <- M.sepEndBy1 tagParser M.newline
+  uri <- uriParser
+  return (uri, tags)
   where
     tagParser :: M.Parser HLSTag
     tagParser = HLSTag . T.pack <$> (ext *> M.someTill M.printChar M.newline)
+
     uriParser :: M.Parser HLSURI
     uriParser = do
       mayUri <- URI.parseURI <$> M.someTill M.printChar M.newline
-      uri <- maybeParse "valid URI" mayUri
+      uri <- maybeParse "invalid URI" mayUri
       return $ HLSURI uri
 
 hlsPlaylistParser :: M.Parser HLSPlaylist
@@ -88,7 +91,7 @@ hlsPlaylistParser = do
 
   return HLSPlaylist { .. }
 
-parseHlsPlaylist :: T.Text -> Either M.ParseError HLSPlaylist
+parseHlsPlaylist :: T.Text -> Either (M.ParseError Char M.Dec) HLSPlaylist
 parseHlsPlaylist = M.parse (hlsPlaylistParser <* M.eof) ""
 
 playlistType :: HLSPlaylist -> PlaylistType
