@@ -49,6 +49,13 @@ main = hspec .
       let (Right res) = masterPlaylist
       HLS.playlistType res `shouldBe` HLS.MasterPlaylistType
 
+    it "parses a media playlist" $ do
+      mediaPlaylist <- openFixturePlaylist "media-playlist.m3u8"
+
+      mediaPlaylist `shouldSatisfy` Either.isRight
+      unsafeFromRight mediaPlaylist `shouldView` HLS.HLSVersion 3 `through` HLS.hlsVersion
+      HLS.playlistType (unsafeFromRight mediaPlaylist) `shouldBe` HLS.MediaPlaylistType
+
 openFixturePlaylist :: MonadIO m => FilePath -> m (Either M.ParseError HLS.HLSPlaylist)
 openFixturePlaylist = liftIO . fmap HLS.parseHlsPlaylist . openTextFixture
 
