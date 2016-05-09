@@ -37,7 +37,8 @@ main = hspec .
 
     it "extracts media playlist URIs" $ do
       masterPlaylist <- openFixturePlaylist "master-playlist.m3u8"
-      unsafeFromRight masterPlaylist `shouldView` 2 `through` HLS.hlsEntries . to length
+      let (Right res) = masterPlaylist
+      res `shouldView` 2 `through` HLS.hlsEntries . to length
 
 openFixturePlaylist :: MonadIO m => FilePath -> m (Either M.ParseError HLS.HLSPlaylist)
 openFixturePlaylist = liftIO . fmap HLS.parseHlsPlaylist . openTextFixture

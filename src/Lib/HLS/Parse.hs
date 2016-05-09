@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TemplateHaskell   #-}
@@ -10,13 +11,13 @@ module Lib.HLS.Parse where
 import           Control.Lens          (makeLenses)
 import           Control.Monad         (void)
 import           Data.Monoid           ((<>))
-import qualified Network.URI as URI
 import qualified Data.Text             as T
+import qualified Network.URI           as URI
 import qualified Text.Megaparsec       as M
 import qualified Text.Megaparsec.Lexer as L
 import qualified Text.Megaparsec.Text  as M
 
-import Data.Maybe (fromJust)
+import           Data.Maybe            (fromJust)
 
 maxSupportedVersionNumber :: Int
 maxSupportedVersionNumber = 3
@@ -24,8 +25,7 @@ maxSupportedVersionNumber = 3
 newtype HLSVersion = HLSVersion Int
   deriving (Eq, Show)
 
--- TODO: Temporary Maybe until this is joined into the ParserT.
-newtype HLSURI = HLSURI (Maybe URI.URI)
+newtype HLSURI = HLSURI URI.URI
   deriving (Eq, Show)
 
 -- TODO: Temporary way to store the tag without losing information.
@@ -56,12 +56,22 @@ versionParser = do
     then return $ HLSVersion v
     else M.unexpected $ "Unsupported version " <> show v
 
+maybeParse :: String -> Maybe a -> M.Parser a
+maybeParse tag = \case
+  Just a  -> pure a
+  Nothing -> M.unexpected tag
+
 entryParser :: M.Parser (HLSURI, [HLSTag])
 entryParser =
   flip (,) <$> M.sepEndBy1 tagParser M.newline <*> uriParser
   where
+    tagParser :: M.Parser HLSTag
     tagParser = HLSTag . T.pack <$> (ext *> M.someTill M.printChar M.newline)
-    uriParser = HLSURI . URI.parseURI <$> M.someTill M.printChar M.newline
+    uriParser :: M.Parser HLSURI
+    uriParser = do
+      mayUri <- URI.parseURI <$> M.someTill M.printChar M.newline
+      uri <- maybeParse "Valid URI" mayUri
+      return $ HLSURI uri
 
 hlsPlaylistParser :: M.Parser HLSPlaylist
 hlsPlaylistParser = do
