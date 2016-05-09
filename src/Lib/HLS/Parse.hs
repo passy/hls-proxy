@@ -77,10 +77,10 @@ hlsPlaylistParser :: M.Parser HLSPlaylist
 hlsPlaylistParser = do
   extm3u <* M.newline
   _hlsVersion <- versionParser <* M.newline
-  _hlsEntries <- M.some entryParser
-  -- TODO: Skip empty lines so I can match against EOF.
+  M.space
+  _hlsEntries <- M.some $ entryParser <* M.space
 
   return HLSPlaylist { .. }
 
 parseHlsPlaylist :: T.Text -> Either M.ParseError HLSPlaylist
-parseHlsPlaylist = M.parse hlsPlaylistParser ""
+parseHlsPlaylist = M.parse (hlsPlaylistParser <* M.eof) ""

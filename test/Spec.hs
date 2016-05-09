@@ -30,6 +30,10 @@ main = hspec .
       masterPlaylist `shouldSatisfy` Either.isRight
       unsafeFromRight masterPlaylist `shouldView` HLS.HLSVersion 3 `through` HLS.hlsVersion
 
+    it "read master playlist with spaces" $ do
+      masterPlaylist <- openFixturePlaylist "master-playlist-spaces.m3u8"
+      masterPlaylist `shouldSatisfy` Either.isRight
+
     it "rejects invalid versioned master playlists" $ do
       masterPlaylist <- openFixturePlaylist "master-playlist-invalid-version.m3u8"
       masterPlaylist `shouldSatisfy` Either.isLeft
