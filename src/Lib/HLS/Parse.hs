@@ -24,10 +24,12 @@ maxSupportedVersionNumber = 3
 newtype HLSVersion = HLSVersion Int
   deriving (Eq, Show)
 
-newtype HLSURI = HLSURI URI.URI
+-- TODO: Temporary Maybe until this is joined into the ParserT.
+newtype HLSURI = HLSURI (Maybe URI.URI)
   deriving (Eq, Show)
 
-data HLSTag = HLSTag
+-- TODO: Temporary way to store the tag without losing information.
+data HLSTag = HLSTag T.Text
   deriving (Eq, Show)
 
 data HLSPlaylist = HLSPlaylist
@@ -54,21 +56,19 @@ versionParser = do
     then return $ HLSVersion v
     else M.unexpected $ "Unsupported version " <> show v
 
-
 entryParser :: M.Parser (HLSURI, [HLSTag])
 entryParser =
-  (,) <$> uriParser <*> M.some tagParser
+  flip (,) <$> M.sepEndBy1 tagParser M.newline <*> uriParser
   where
-    tagParser = ext <* M.skipSome M.anyChar <* M.eol *> pure HLSTag
-    uriParser = pure . HLSURI . fromJust $ URI.parseURI "https://example.com/path.m3u8"
+    tagParser = HLSTag . T.pack <$> (ext *> M.someTill M.printChar M.newline)
+    uriParser = HLSURI . URI.parseURI <$> M.someTill M.printChar M.newline
 
 hlsPlaylistParser :: M.Parser HLSPlaylist
 hlsPlaylistParser = do
   extm3u <* M.newline
   _hlsVersion <- versionParser <* M.newline
   _hlsEntries <- M.some entryParser
-  M.space
-  M.eof
+  -- TODO: Skip empty lines so I can match against EOF.
 
   return HLSPlaylist { .. }
 
