@@ -8,8 +8,9 @@ module Lib.HLS.Parse where
 
 -- TODO: Reexport M.ParseError
 
-import           Control.Lens          (makeLenses)
+import           Control.Lens          (makeLenses, to, (^.), _1)
 import           Control.Monad         (void)
+import qualified Data.List             as List
 import           Data.Monoid           ((<>))
 import qualified Data.Text             as T
 import qualified Network.URI           as URI
@@ -17,24 +18,29 @@ import qualified Text.Megaparsec       as M
 import qualified Text.Megaparsec.Lexer as L
 import qualified Text.Megaparsec.Text  as M
 
-import           Data.Maybe            (fromJust)
-
 maxSupportedVersionNumber :: Int
 maxSupportedVersionNumber = 3
 
 newtype HLSVersion = HLSVersion Int
   deriving (Eq, Show)
 
-newtype HLSURI = HLSURI URI.URI
+newtype HLSURI = HLSURI { _hlsURI :: URI.URI }
   deriving (Eq, Show)
+
+makeLenses ''HLSURI
 
 -- TODO: Temporary way to store the tag without losing information.
 data HLSTag = HLSTag T.Text
   deriving (Eq, Show)
 
+data PlaylistType = MasterPlaylistType | MediaPlaylistType
+  deriving (Eq, Show)
+
+type HLSEntry = (HLSURI, [HLSTag])
+
 data HLSPlaylist = HLSPlaylist
   { _hlsVersion :: HLSVersion
-  , _hlsEntries :: [(HLSURI, [HLSTag])]
+  , _hlsEntries :: [HLSEntry]
   } deriving (Eq, Show)
 
 makeLenses ''HLSPlaylist
@@ -61,7 +67,7 @@ maybeParse tag = \case
   Just a  -> pure a
   Nothing -> M.unexpected tag
 
-entryParser :: M.Parser (HLSURI, [HLSTag])
+entryParser :: M.Parser HLSEntry
 entryParser =
   flip (,) <$> M.sepEndBy1 tagParser M.newline <*> uriParser
   where
@@ -70,7 +76,7 @@ entryParser =
     uriParser :: M.Parser HLSURI
     uriParser = do
       mayUri <- URI.parseURI <$> M.someTill M.printChar M.newline
-      uri <- maybeParse "Valid URI" mayUri
+      uri <- maybeParse "valid URI" mayUri
       return $ HLSURI uri
 
 hlsPlaylistParser :: M.Parser HLSPlaylist
@@ -84,3 +90,13 @@ hlsPlaylistParser = do
 
 parseHlsPlaylist :: T.Text -> Either M.ParseError HLSPlaylist
 parseHlsPlaylist = M.parse (hlsPlaylistParser <* M.eof) ""
+
+playlistType :: HLSPlaylist -> PlaylistType
+playlistType pl
+  | any (hasExt ".ts") (pl ^. hlsEntries) = MediaPlaylistType
+  | otherwise = MasterPlaylistType
+  where
+    hasExt :: String -> HLSEntry -> Bool
+    hasExt ext' entry =
+      let path = entry ^. _1 . hlsURI . to URI.uriPath
+      in  ext' `List.isSuffixOf` path
