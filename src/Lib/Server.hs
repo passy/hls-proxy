@@ -27,6 +27,7 @@ import qualified Network.HTTP.Conduit                 as Conduit
 import qualified Network.HTTP.ReverseProxy            as Proxy
 import qualified Network.HTTP.Types.Header            as Header
 import qualified Network.HTTP.Types.Status            as Status
+import qualified Network.URI                          as URI
 import qualified Network.Wai                          as Wai
 import qualified Network.Wai.Handler.Warp             as Warp
 import           Network.Wai.Middleware.RequestLogger (logStdout)
@@ -38,6 +39,7 @@ import           Lib.Types                            (Port,
                                                        RuntimeOptions (..), ServerOptions (ServerOptions),
                                                        defRuntimeOptions,
                                                        enableEmptyPlaylist,
+                                                       overrideMasterPlaylist,
                                                        port, unPort, url)
 
 hostHeader :: BS.ByteString -> (CI BS.ByteString, BS.ByteString)
@@ -83,9 +85,9 @@ mkEmptyEndedPlaylistResponse :: Wai.Response
 mkEmptyEndedPlaylistResponse =
   Wai.responseLBS Status.status200 (def <> hlsHeaders) (BL.fromStrict Files.eventEmptyEndedM3U8File)
 
-passthrough :: B8.ByteString -> Wai.Request -> IO Proxy.WaiProxyResponse
+passthrough :: B8.ByteString -> Wai.Request -> Proxy.WaiProxyResponse
 passthrough dest req =
-  return $ Proxy.WPRModifiedRequestSecure
+  Proxy.WPRModifiedRequestSecure
     (setHostHeaderToDestination dest req)
     (Proxy.ProxyDest dest 443)
 
@@ -98,9 +100,30 @@ proxy ropts sopts =
   where
     destBS =
       sopts ^. url & B8.pack
+
     transform req = do
       opts <- atomically $ readTVar ropts
-      let pt = playlistType req
-      case pt of
-        MediaPlaylist -> if opts ^. enableEmptyPlaylist then pure respondEmptyEndedPlaylist else passthrough destBS req
-        _             -> passthrough destBS req
+      case playlistType req of
+        MediaPlaylist -> mediaHandler opts req
+        _             -> masterHandler opts req
+
+    masterHandler opts req =
+      case opts ^. overrideMasterPlaylist of
+        Just o -> return $ redirect o destBS req
+        Nothing -> emptyPlaylistHandler opts req
+
+    emptyPlaylistHandler opts req =
+      if opts ^. enableEmptyPlaylist
+        then return respondEmptyEndedPlaylist
+        else return $ passthrough destBS req
+
+    mediaHandler _ =
+      return . passthrough destBS
+
+redirect :: URI.URI -> B8.ByteString -> Wai.Request -> Proxy.WaiProxyResponse
+redirect override dest req =
+  -- TODO: Make lenses for Wai.*
+  let regName = maybe mempty (B8.pack . URI.uriRegName) $ URI.uriAuthority override
+      req' = req { Wai.rawPathInfo = B8.pack $ URI.uriPath override }
+      req'' = setHostHeaderToDestination regName req'
+  in Proxy.WPRModifiedRequest req'' (Proxy.ProxyDest dest 80)
