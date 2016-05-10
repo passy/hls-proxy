@@ -9,6 +9,8 @@ import           Control.Concurrent.STM.TVar (TVar (), readTVar)
 import           Control.Lens                (makeLenses, (^.))
 import           Data.Default                (Default (), def)
 import           Data.Monoid                 ((<>))
+import Control.Applicative (empty)
+import qualified Network.URI as URI
 import qualified Data.Text                   as T
 
 newtype Port = Port Int
@@ -27,6 +29,7 @@ makeLenses ''ServerOptions
 
 data RuntimeOptions = RuntimeOptions
   { _enableEmptyPlaylist :: Bool
+  , _overrideMasterPlaylist :: Maybe URI.URI
   }
 
 makeLenses ''RuntimeOptions
@@ -34,6 +37,7 @@ makeLenses ''RuntimeOptions
 defRuntimeOptions :: RuntimeOptions
 defRuntimeOptions = RuntimeOptions
   { _enableEmptyPlaylist = False
+  , _overrideMasterPlaylist = empty
   }
 
 tshow :: Show a => a -> T.Text
@@ -43,7 +47,10 @@ showRuntimeOptions :: TVar RuntimeOptions -> STM T.Text
 showRuntimeOptions ropts = do
   ropts' <- readTVar ropts
   let _enableEmptyPlaylist = ropts' ^. enableEmptyPlaylist
-  return $ "{ enableEmptyPlaylist = " <> tshow _enableEmptyPlaylist <> " }"
+  let _overrideMasterPlaylist = ropts' ^. overrideMasterPlaylist
+  return $ "{ enableEmptyPlaylist = " <> tshow _enableEmptyPlaylist <> "\n"
+        <> ", overrideMasterPlaylist = " <> tshow _overrideMasterPlaylist <> "\n"
+        <> "}"
 
 instance Default Port where
   def = Port 3000

@@ -12,18 +12,24 @@ import           Control.Monad               (forever)
 import           Data.Monoid                 ((<>))
 import qualified Data.Text                   as T
 import qualified Data.Text.IO                as TIO
+import qualified Network.URI                 as URI
 import           System.Exit                 (exitSuccess)
 import qualified System.IO                   as IO
 
-import           Control.Lens                (over)
+import           Control.Lens                (over, set)
 import           Lib.Types                   (RuntimeOptions,
                                               enableEmptyPlaylist,
+                                              overrideMasterPlaylist,
                                               showRuntimeOptions)
 
 import qualified Text.Megaparsec             as M
 import qualified Text.Megaparsec.Text        as M
 
-data CLICommand = CmdQuit | CmdToggleEmpty | CmdShow | CmdUnknown (Maybe M.ParseError)
+data CLICommand = CmdQuit
+                | CmdToggleEmpty
+                | CmdShow
+                | CmdOverride (Maybe URI.URI)
+                | CmdUnknown (Maybe M.ParseError)
   deriving (Show, Eq)
 
 cliCommandParser :: M.Parser CLICommand
@@ -31,12 +37,18 @@ cliCommandParser =
         p "quit" CmdQuit
     <|> p "empty" CmdToggleEmpty
     <|> p "show" CmdShow
+    <|> overrideParser
   where
     p :: String -> a -> M.Parser a
     p []          _   =
       fail "Invalid CLI pattern."
     p token@(t:_) cmd =
       (M.try (M.char t *> M.eof) <|> (M.string token *> M.eof)) *> pure cmd
+
+    overrideParser :: M.Parser CLICommand
+    overrideParser = do
+      _ <- M.try (M.char 'o' *> M.space) <|> (M.string "override" *> M.space)
+      CmdOverride . URI.parseURI <$> M.manyTill M.printChar M.eof
 
 parseCLICommand :: T.Text -> CLICommand
 parseCLICommand input = case M.parse cliCommandParser "<input>" input of
@@ -47,6 +59,7 @@ interpret :: MVar.MVar () -> TVar RuntimeOptions -> CLICommand -> IO ()
 interpret poison ropts = \case
   CmdQuit -> MVar.putMVar poison () >> exitSuccess
   CmdToggleEmpty -> atomically $ modifyTVar ropts (over enableEmptyPlaylist not)
+  CmdOverride o -> atomically $ modifyTVar ropts (set overrideMasterPlaylist o)
   CmdShow -> TIO.putStrLn =<< atomically (showRuntimeOptions ropts)
   CmdUnknown Nothing -> TIO.putStrLn "!! Unknown Command"
   CmdUnknown (Just err) -> TIO.putStrLn $ "!! Error: " <> T.pack (show err)
