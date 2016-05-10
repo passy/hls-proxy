@@ -3,7 +3,7 @@
 -- see: https://github.com/sol/hpack
 
 name:           hls-proxy
-version:        0.1.1.0
+version:        0.1.2.0
 synopsis:       A bunch of hacks to modify HLS manifests in-flight
 description:    Please see README.md
 category:       Web
