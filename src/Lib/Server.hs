@@ -126,4 +126,7 @@ redirect override dest req =
   let regName = maybe mempty (B8.pack . URI.uriRegName) $ URI.uriAuthority override
       req' = req { Wai.rawPathInfo = B8.pack $ URI.uriPath override }
       req'' = setHostHeaderToDestination regName req'
-  in Proxy.WPRModifiedRequest req'' (Proxy.ProxyDest dest 80)
+  in case URI.uriScheme override of
+    "http:"  -> Proxy.WPRModifiedRequest req'' (Proxy.ProxyDest dest 80)
+    "https:" -> Proxy.WPRModifiedRequestSecure req'' (Proxy.ProxyDest dest 443)
+    _        -> Proxy.WPRResponse $ Wai.responseLBS Status.status501 [] "Unsupported override host scheme."
