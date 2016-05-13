@@ -5,9 +5,24 @@
 A collection of various unportable hacks to transform HLS streams for debugging
 purposes. This is highly tailored towards the sort of setup I'm working with right now, so it will almost certainly not work out-of-the-box for you.
 
-## Setup
+## Setup (mitmproxy)
 
-The setup is a little gnarly and there isn't much I can do to change that. I'll assume here that you're setting up an Android device.
+`mitmproxy` is great! Getting TLS to run your device is actually surprisingly
+easy. I'll assume here that you're setting up an Android device.
+
+- Install [mitmproxy](https://mitmproxy.org/). They've got packages for pretty
+  much everything.
+- Set your device's HTTP proxy to your local machine's IP address, port 8888.
+- Run `mitmproxy` bare-bones in the same WiFi as your device: `mitmproxy -b 0.0.0.0 -p 8888`.
+- Go to [mitm.it](http://mitm.it) and install the TLS CA certificate.
+- I haven't changed the `mitm_redirect.py` script to take parameters, so you may
+  need to update it to match your host settings.
+- Run `mitmproxy` again, this time in script mode to redirect all requests to
+  the target host to `hls_proxy` instead: `mitmproxy -s mitm_redirect.py -b 0.0.0.0 -p 8888`.
+
+## Setup (Charles)
+
+Charles is way more painful to setup, but to each their own. I'll assume here that you're setting up an Android device.
 
 - Get [Charles](https://www.charlesproxy.com/) set up on your machine.
 - Make sure your on the same WiFi as your phone.
