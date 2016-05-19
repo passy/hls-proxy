@@ -23,7 +23,7 @@ import           Lib.Types                   (RuntimeOptions,
 import qualified Text.Megaparsec             as M
 import qualified Text.Megaparsec.Text        as M
 
-data CLICommand = CmdQuit | CmdToggleEmpty | CmdShow | CmdUnknown (Maybe M.ParseError)
+data CLICommand = CmdQuit | CmdToggleEmpty | CmdShow | CmdUnknown (Maybe (M.ParseError (M.Token T.Text) M.Dec))
   deriving (Show, Eq)
 
 cliCommandParser :: M.Parser CLICommand
