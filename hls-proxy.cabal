@@ -96,4 +96,6 @@ test-suite spec
     , either
     , safe
     , megaparsec
+    , semigroups
+    , hspec-megaparsec
   default-language: Haskell2010
