@@ -9,6 +9,7 @@ import qualified Data.Set                     as Set
 import qualified Data.Text                    as T
 import qualified Data.Text.IO                 as TIO
 import qualified Lib.HLS.Parse                as HLS
+import qualified Network.URI                  as URI
 import           System.Directory             (getCurrentDirectory)
 import           System.FilePath              ((</>))
 import           Test.Hspec
@@ -63,6 +64,15 @@ main = hspec .
       mediaPlaylist `shouldSatisfy` Either.isRight
       unsafeFromRight mediaPlaylist `shouldView` HLS.HLSVersion 3 `through` HLS.hlsVersion
       HLS.playlistType (unsafeFromRight mediaPlaylist) `shouldBe` HLS.MediaPlaylistType
+
+    it "extracts multiple tags" $ do
+      playlist <- openFixturePlaylist "master-playlist-multiple-tags.m3u8"
+
+      playlist `shouldSatisfy` Either.isRight
+      let (Right res) = playlist
+      let (Just uri) = HLS.HLSURI <$> URI.parseAbsoluteURI "https://example.net/hls/live/12345/snappyTV/stream1/PassyNetwork_Snap_1_a.m3u8"
+      let entries = (uri, ["-X-CUSTOM:FOO", "-X-CROSSFIT:WACK"]) :: HLS.HLSEntry
+      res `shouldView` pure entries `through` HLS.hlsEntries
 
 openFixturePlaylist :: MonadIO m => FilePath -> m (Either (M.ParseError Char M.Dec) HLS.HLSPlaylist)
 openFixturePlaylist = liftIO . fmap HLS.parseHlsPlaylist . openTextFixture
