@@ -1,7 +1,8 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE DeriveAnyClass             #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE TemplateHaskell            #-}
 
 -- | A very, very incomplete parser for HLS draft 19, version 3.
 module Lib.HLS.Parse where
@@ -12,6 +13,7 @@ import           Control.Lens          (makeLenses, to, (^.), _1)
 import           Control.Monad         (void)
 import qualified Data.List             as List
 import           Data.Monoid           ((<>))
+import           Data.String           (IsString(..))
 import qualified Data.Text             as T
 import qualified Network.URI           as URI
 import qualified Text.Megaparsec       as M
@@ -32,6 +34,9 @@ makeLenses ''HLSURI
 -- TODO: Temporary way to store the tag without losing information.
 data HLSTag = HLSTag T.Text
   deriving (Eq, Show)
+
+instance IsString HLSTag where
+  fromString = HLSTag . T.pack
 
 data PlaylistType = MasterPlaylistType | MediaPlaylistType
   deriving (Eq, Show)
