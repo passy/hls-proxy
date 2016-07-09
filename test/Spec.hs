@@ -5,9 +5,6 @@ import           Control.Lens                 (to)
 import           Control.Monad.IO.Class       (MonadIO, liftIO)
 import qualified Data.Either.Combinators      as Either
 import           Data.List.NonEmpty           (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty           as NonEmpty
-import qualified Data.List.NonEmpty           as NE
-import           Data.Set                     as Set
 import qualified Data.Set                     as Set
 import qualified Data.Text                    as T
 import qualified Data.Text.IO                 as TIO

@@ -69,7 +69,8 @@ maybeParse tag = \case
 
 entryParser :: M.Parser HLSEntry
 entryParser = do
-  tags <- M.sepEndBy1 tagParser M.newline
+  tags <- M.many tagParser
+  M.skipMany M.spaceChar
   uri <- uriParser
   return (uri, tags)
   where
