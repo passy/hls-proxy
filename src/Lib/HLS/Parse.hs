@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -6,13 +7,13 @@
 -- | A very, very incomplete parser for HLS draft 19, version 3.
 module Lib.HLS.Parse where
 
--- TODO: Reexport M.ParseError
-
 import           Control.Lens          (makeLenses, to, (^.), _1)
 import           Control.Monad         (void)
 import qualified Data.List             as List
 import           Data.Monoid           ((<>))
+import           Data.String           (IsString (..))
 import qualified Data.Text             as T
+import           Lib.Types             (ParseError)
 import qualified Network.URI           as URI
 import qualified Text.Megaparsec       as M
 import qualified Text.Megaparsec.Lexer as L
@@ -32,6 +33,9 @@ makeLenses ''HLSURI
 -- TODO: Temporary way to store the tag without losing information.
 data HLSTag = HLSTag T.Text
   deriving (Eq, Show)
+
+instance IsString HLSTag where
+  fromString = HLSTag . T.pack
 
 data PlaylistType = MasterPlaylistType | MediaPlaylistType
   deriving (Eq, Show)
@@ -60,23 +64,27 @@ versionParser = do
   v <- M.hidden $ fromInteger <$> L.integer -- Ignoring potential overflow
   if v <= maxSupportedVersionNumber
     then return $ HLSVersion v
-    else M.unexpected $ "Unsupported version " <> show v
+    else fail $ "Unsupported version " <> show v
 
 maybeParse :: String -> Maybe a -> M.Parser a
 maybeParse tag = \case
   Just a  -> pure a
-  Nothing -> M.unexpected tag
+  Nothing -> fail $ "Unexpected " <> tag
 
 entryParser :: M.Parser HLSEntry
-entryParser =
-  flip (,) <$> M.sepEndBy1 tagParser M.newline <*> uriParser
+entryParser = do
+  tags <- M.many tagParser
+  M.skipMany M.spaceChar
+  uri <- uriParser
+  return (uri, tags)
   where
     tagParser :: M.Parser HLSTag
     tagParser = HLSTag . T.pack <$> (ext *> M.someTill M.printChar M.newline)
+
     uriParser :: M.Parser HLSURI
     uriParser = do
       mayUri <- URI.parseURI <$> M.someTill M.printChar M.newline
-      uri <- maybeParse "valid URI" mayUri
+      uri <- maybeParse "invalid URI" mayUri
       return $ HLSURI uri
 
 hlsPlaylistParser :: M.Parser HLSPlaylist
@@ -88,7 +96,7 @@ hlsPlaylistParser = do
 
   return HLSPlaylist { .. }
 
-parseHlsPlaylist :: T.Text -> Either M.ParseError HLSPlaylist
+parseHlsPlaylist :: T.Text -> Either ParseError HLSPlaylist
 parseHlsPlaylist = M.parse (hlsPlaylistParser <* M.eof) ""
 
 playlistType :: HLSPlaylist -> PlaylistType

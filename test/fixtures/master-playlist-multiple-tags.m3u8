@@ -1,0 +1,5 @@
+#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-CUSTOM:FOO
+#EXT-X-CROSSFIT:WACK
+https://example.net/hls/live/12345/snappyTV/stream1/PassyNetwork_Snap_1_a.m3u8

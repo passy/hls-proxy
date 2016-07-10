@@ -23,6 +23,7 @@ import           Data.CaseInsensitive                 (CI)
 import           Data.Default                         (def)
 import           Data.Monoid                          ((<>))
 import qualified Data.Text                            as T
+import qualified Data.Text.Encoding                   as TE
 import qualified Network.HTTP.Conduit                 as Conduit
 import qualified Network.HTTP.ReverseProxy            as Proxy
 import qualified Network.HTTP.Types.Header            as Header
@@ -48,7 +49,8 @@ hostHeader dest = ("Host", dest)
 setHostHeaderToDestination :: BS.ByteString -> Wai.Request -> Wai.Request
 setHostHeaderToDestination dest req =
   req { Wai.requestHeaders = replaceHostHeader (Wai.requestHeaders req) }
-  where replaceHostHeader =
+  where replaceHostHeader :: [(CI BS.ByteString, BS.ByteString)] -> [(CI BS.ByteString, BS.ByteString)]
+        replaceHostHeader =
           fmap (\header@(name, _) ->
             case name of
               "Host" -> hostHeader dest
@@ -98,8 +100,7 @@ proxy :: TVar RuntimeOptions -> ServerOptions -> Conduit.Manager -> Wai.Applicat
 proxy ropts sopts =
   Proxy.waiProxyToSettings transform def
   where
-    destBS =
-      sopts ^. url & B8.pack
+    destBS = sopts ^. url & TE.encodeUtf8
 
     transform req = do
       opts <- atomically $ readTVar ropts

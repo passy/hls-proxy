@@ -1,15 +1,15 @@
-
 module Main where
 
-import           Control.Applicative ((<**>))
-import           Data.Default        (def)
-import           Data.Monoid         ((<>))
-import           Data.Version        (Version (), showVersion)
-import           Lib.Server          (server)
-import           Lib.Types           (Port (..), ServerOptions (..))
-import qualified Options.Applicative as Opt
-import           Paths_hls_proxy     (version)
-import           System.Environment  (getProgName)
+import           Control.Applicative      ((<**>))
+import           Data.Default             (def)
+import           Data.Monoid              ((<>))
+import           Data.Version             (Version (), showVersion)
+import           Lib.Server               (server)
+import           Lib.Types                (Port (..), ServerOptions (..))
+import qualified Options.Applicative      as Opt
+import qualified Options.Applicative.Text as Opt
+import           Paths_hls_proxy          (version)
+import           System.Environment       (getProgName)
 
 
 readPort :: Opt.ReadM Port
@@ -25,7 +25,7 @@ serverParser progName ver =
    <> Opt.header progName )
   where
     appOpts = ServerOptions
-      <$> Opt.argument Opt.str (Opt.metavar "URL")
+      <$> Opt.textArgument (Opt.metavar "URL")
       <*> Opt.option readPort
           ( Opt.long "port"
          <> Opt.short 'p'
