@@ -79,6 +79,7 @@ executables:
     dependencies:
       - hls-proxy
       - optparse-applicative
+      - optparse-text
       - bytestring
       - lens
       - wreq

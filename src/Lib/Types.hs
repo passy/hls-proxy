@@ -24,7 +24,7 @@ type ParseError = M.ParseError Char M.Dec
 
 -- | Command line options provided to start up the server.
 data ServerOptions = ServerOptions
-  { _url  :: String
+  { _url  :: T.Text
   , _port :: Port
   }
 
