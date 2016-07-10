@@ -1,20 +1,19 @@
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE RecordWildCards            #-}
-{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE DeriveAnyClass    #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TemplateHaskell   #-}
 
 -- | A very, very incomplete parser for HLS draft 19, version 3.
 module Lib.HLS.Parse where
-
--- TODO: Reexport M.ParseError
 
 import           Control.Lens          (makeLenses, to, (^.), _1)
 import           Control.Monad         (void)
 import qualified Data.List             as List
 import           Data.Monoid           ((<>))
-import           Data.String           (IsString(..))
+import           Data.String           (IsString (..))
 import qualified Data.Text             as T
+import           Lib.Types             (ParseError)
 import qualified Network.URI           as URI
 import qualified Text.Megaparsec       as M
 import qualified Text.Megaparsec.Lexer as L
@@ -97,7 +96,7 @@ hlsPlaylistParser = do
 
   return HLSPlaylist { .. }
 
-parseHlsPlaylist :: T.Text -> Either (M.ParseError Char M.Dec) HLSPlaylist
+parseHlsPlaylist :: T.Text -> Either ParseError HLSPlaylist
 parseHlsPlaylist = M.parse (hlsPlaylistParser <* M.eof) ""
 
 playlistType :: HLSPlaylist -> PlaylistType

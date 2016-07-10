@@ -4,4 +4,4 @@ packages:
 - '.'
 extra-deps:
 - hspec-expectations-lens-0.4.0
-resolver: nightly-2016-07-07
+resolver: nightly-2016-07-09

@@ -18,6 +18,7 @@ import qualified System.IO                   as IO
 
 import           Control.Lens                (over, set)
 import           Lib.Types                   (RuntimeOptions,
+                                              ParseError,
                                               enableEmptyPlaylist,
                                               overrideMasterPlaylist,
                                               showRuntimeOptions)
@@ -29,7 +30,7 @@ data CLICommand = CmdQuit
                 | CmdToggleEmpty
                 | CmdShow
                 | CmdOverride (Maybe URI.URI)
-                | CmdUnknown (Maybe M.ParseError)
+                | CmdUnknown (Maybe ParseError)
   deriving (Show, Eq)
 
 cliCommandParser :: M.Parser CLICommand
